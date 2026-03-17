@@ -19,6 +19,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     const navItems = [
         { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { path: '/today', icon: CheckSquare, label: "Today's Tasks" },
+        { path: '/weekly-tracker', icon: CalendarDays, label: 'Weekly Tracker' },
         { path: '/upcoming', icon: Clock, label: 'Upcoming' },
         { path: '/completed', icon: CheckCircle2, label: 'Completed' },
         { path: '/calendar', icon: Calendar, label: 'Calendar' },

@@ -82,6 +82,44 @@ const initializeDatabase = () => {
         CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens(user_id);
     `);
 
+    // Drop existing weekly tables if they exist (for clean reset)
+    db.exec(`DROP TABLE IF EXISTS weekly_task_completions`);
+    db.exec(`DROP TABLE IF EXISTS weekly_tasks`);
+
+    // Create weekly_tasks table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS weekly_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userId INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            createdAt TEXT DEFAULT (datetime('now')),
+            updatedAt TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+        )
+    `);
+
+    // Create weekly_task_completions table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS weekly_task_completions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            weeklyTaskId INTEGER NOT NULL,
+            dayOfWeek INTEGER NOT NULL CHECK(dayOfWeek >= 0 AND dayOfWeek <= 6),
+            weekStartDate TEXT NOT NULL,
+            completed INTEGER DEFAULT 0,
+            completedAt TEXT,
+            createdAt TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (weeklyTaskId) REFERENCES weekly_tasks(id) ON DELETE CASCADE,
+            UNIQUE(weeklyTaskId, dayOfWeek, weekStartDate)
+        )
+    `);
+
+    // Create indexes for weekly tasks
+    db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_weekly_tasks_user ON weekly_tasks(userId);
+        CREATE INDEX IF NOT EXISTS idx_weekly_completions_task ON weekly_task_completions(weeklyTaskId);
+        CREATE INDEX IF NOT EXISTS idx_weekly_completions_week ON weekly_task_completions(weekStartDate);
+    `);
+
     console.log('✅ SQLite Database initialized');
 };
 

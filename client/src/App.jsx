@@ -18,6 +18,7 @@ import UpcomingTasks from './pages/UpcomingTasks';
 import CompletedTasks from './pages/CompletedTasks';
 import Calendar from './pages/Calendar';
 import Settings from './pages/Settings';
+import WeeklyTracker from './pages/WeeklyTracker';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -76,6 +77,7 @@ function App() {
                 <Route path="/completed" element={<CompletedTasks />} />
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/weekly-tracker" element={<WeeklyTracker />} />
             </Route>
 
             {/* Default redirect */}

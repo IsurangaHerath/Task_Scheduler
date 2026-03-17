@@ -1,12 +1,7 @@
-import Layout from '../components/common/Layout';
 import WeeklyTaskTracker from '../components/tasks/WeeklyTaskTracker';
 
 function WeeklyTracker() {
-    return (
-        <Layout>
-            <WeeklyTaskTracker />
-        </Layout>
-    );
+    return <WeeklyTaskTracker />;
 }
 
 export default WeeklyTracker;

@@ -10,6 +10,7 @@ const { initReminderService, stopAllReminders } = require('./services/reminderSe
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const weeklyRoutes = require('./routes/weeklyRoutes');
 
 // Initialize Express app
 const app = express();
@@ -35,6 +36,7 @@ app.use(cors({
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/weekly', weeklyRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
