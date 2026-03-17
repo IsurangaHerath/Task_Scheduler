@@ -9,7 +9,9 @@ import {
     Settings,
     LogOut,
     X,
-    CheckSquare
+    CheckSquare,
+    Shield,
+    Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -24,6 +26,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         { path: '/completed', icon: CheckCircle2, label: 'Completed' },
         { path: '/calendar', icon: Calendar, label: 'Calendar' },
         { path: '/settings', icon: Settings, label: 'Settings' },
+    ];
+
+    const adminNavItems = [
+        { path: '/admin', icon: Shield, label: 'Admin Panel' },
+        { path: '/admin/users', icon: Users, label: 'User Management' },
     ];
 
     const sidebarContent = (
@@ -61,6 +68,31 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <span>{item.label}</span>
                     </NavLink>
                 ))}
+
+                {/* Admin Section */}
+                {user?.role === 'admin' && (
+                    <>
+                        <div className="pt-4 pb-2">
+                            <div className="h-px bg-primary-light/30"></div>
+                        </div>
+                        <p className="px-4 py-2 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                            Admin
+                        </p>
+                        {adminNavItems.map((item) => (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                onClick={onClose}
+                                className={({ isActive }) =>
+                                    isActive ? 'sidebar-link-active' : 'sidebar-link'
+                                }
+                            >
+                                <item.icon className="w-5 h-5" />
+                                <span>{item.label}</span>
+                            </NavLink>
+                        ))}
+                    </>
+                )}
             </nav>
 
             {/* User section */}

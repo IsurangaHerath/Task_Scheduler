@@ -12,18 +12,24 @@ class User {
      * @returns {Object} Created user
      */
     static async create(userData) {
-        const { name, email, password } = userData;
+        const { name, email, password, role, status } = userData;
         
         // Hash password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         
         const stmt = db.prepare(`
-            INSERT INTO users (name, email, password)
-            VALUES (?, ?, ?)
+            INSERT INTO users (name, email, password, role, status)
+            VALUES (?, ?, ?, ?, ?)
         `);
         
-        const result = stmt.run(name, email.toLowerCase(), hashedPassword);
+        const result = stmt.run(
+            name, 
+            email.toLowerCase(), 
+            hashedPassword,
+            role || 'user',
+            status || 'active'
+        );
         return this.findById(result.lastInsertRowid);
     }
 
@@ -90,7 +96,7 @@ class User {
      * @returns {Object|null} Updated user
      */
     static async update(id, updateData) {
-        const allowedFields = ['name', 'email', 'avatar', 'settings'];
+        const allowedFields = ['name', 'email', 'avatar', 'settings', 'role', 'status'];
         const updates = [];
         const values = [];
 

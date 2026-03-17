@@ -32,6 +32,14 @@ exports.protect = async (req, res, next) => {
                 });
             }
 
+            // Check if user is active
+            if (user.status === 'disabled') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Account is disabled. Contact administrator.'
+                });
+            }
+
             // Add user to request object
             req.user = user;
             next();
@@ -104,4 +112,29 @@ exports.generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE || '7d'
     });
+};
+
+/**
+ * Authorize specific roles
+ * @param {...string} roles - Allowed roles
+ * @returns {Function} Middleware function
+ */
+exports.authorize = (...roles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Not authorized - No token provided'
+            });
+        }
+        
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized - Insufficient permissions'
+            });
+        }
+        
+        next();
+    };
 };

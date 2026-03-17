@@ -28,11 +28,16 @@ const initializeDatabase = () => {
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             avatar TEXT,
+            role TEXT DEFAULT 'user' CHECK(role IN ('user', 'admin')),
+            status TEXT DEFAULT 'active' CHECK(status IN ('active', 'disabled')),
             settings TEXT DEFAULT '{"notifications":{"email":true,"browser":true},"theme":"light","reminderTime":15}',
             createdAt TEXT DEFAULT (datetime('now')),
             updatedAt TEXT DEFAULT (datetime('now'))
         )
     `);
+
+    // Run migrations for existing databases
+    runMigrations();
 
     // Create tasks table
     db.exec(`
@@ -123,4 +128,35 @@ const initializeDatabase = () => {
     console.log('✅ SQLite Database initialized');
 };
 
-module.exports = { db, initializeDatabase };
+/**
+ * Run migrations for existing databases
+ * Adds new columns to tables if they don't exist
+ */
+const runMigrations = () => {
+    try {
+        // Get current table structure
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all();
+        const columns = tableInfo.map(col => col.name);
+        
+        // Add role column if it doesn't exist
+        if (!columns.includes('role')) {
+            db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user' CHECK(role IN ('user', 'admin'))");
+            console.log('✅ Migration: Added role column to users table');
+        }
+        
+        // Add status column if it doesn't exist
+        if (!columns.includes('status')) {
+            db.exec("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active' CHECK(status IN ('active', 'disabled'))");
+            console.log('✅ Migration: Added status column to users table');
+        }
+        
+        // Create indexes for admin queries
+        db.exec("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)");
+        db.exec("CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)");
+        
+    } catch (error) {
+        console.error('❌ Migration error:', error.message);
+    }
+};
+
+module.exports = { db, initializeDatabase, runMigrations };

@@ -2,6 +2,7 @@ const User = require('../models/User');
 const { protect, generateToken } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { sendPasswordResetEmail } = require('../services/emailService');
+const sessionService = require('../services/sessionService');
 const crypto = require('crypto');
 const { db } = require('../config/db');
 
@@ -71,6 +72,11 @@ const login = asyncHandler(async (req, res) => {
 
     // Generate token
     const token = generateToken(user.id);
+
+    // Track session for admin panel
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    sessionService.trackSession(user.id, token, new Date(decoded.exp * 1000).toISOString());
 
     // Remove password from response
     delete user.password;
@@ -232,8 +238,9 @@ const getSettings = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const logout = asyncHandler(async (req, res) => {
-    // JWT is stateless, so logout is handled client-side
-    // This endpoint exists for consistency and future token blacklisting
+    // Remove session from tracking
+    sessionService.removeSession(req.user.id);
+    
     res.json({
         success: true,
         message: 'Logged out successfully'

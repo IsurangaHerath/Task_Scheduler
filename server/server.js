@@ -6,17 +6,22 @@ const { initializeDatabase } = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { verifyEmailConfig } = require('./services/emailService');
 const { initReminderService, stopAllReminders } = require('./services/reminderService');
+const { createDefaultAdmin } = require('./services/adminService');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const weeklyRoutes = require('./routes/weeklyRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Initialize Express app
 const app = express();
 
 // Initialize database
 initializeDatabase();
+
+// Create default admin account
+createDefaultAdmin();
 
 // Verify email configuration
 verifyEmailConfig();
@@ -37,6 +42,7 @@ app.use(cors({
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/weekly', weeklyRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -20,6 +20,11 @@ import Calendar from './pages/Calendar';
 import Settings from './pages/Settings';
 import WeeklyTracker from './pages/WeeklyTracker';
 
+// Admin pages
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminSessions from './pages/AdminSessions';
+
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
@@ -58,6 +63,29 @@ const PublicRoute = ({ children }) => {
     return children;
 };
 
+// Admin Route wrapper
+const AdminRoute = ({ children }) => {
+    const { user, isAuthenticated, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background-main">
+                <div className="spinner spinner-lg"></div>
+            </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+
+    if (user?.role !== 'admin') {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    return children;
+};
+
 function App() {
     return (
         <Routes>
@@ -78,6 +106,13 @@ function App() {
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/weekly-tracker" element={<WeeklyTracker />} />
+            </Route>
+
+            {/* Admin routes */}
+            <Route element={<AdminRoute><Layout /></AdminRoute>}>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/admin/sessions" element={<AdminSessions />} />
             </Route>
 
             {/* Default redirect */}
