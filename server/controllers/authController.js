@@ -1,6 +1,9 @@
 const User = require('../models/User');
 const { protect, generateToken } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { sendPasswordResetEmail } = require('../services/emailService');
+const crypto = require('crypto');
+const { db } = require('../config/db');
 
 /**
  * @desc    Register new user
@@ -271,6 +274,154 @@ const deleteAccount = asyncHandler(async (req, res) => {
     });
 });
 
+/**
+ * @desc    Request password reset
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    // Security: Don't reveal whether the email exists
+    // Always return success to prevent email enumeration attacks
+    const responseMessage = 'If an account with that email exists, we have sent password reset instructions.';
+
+    if (!email) {
+        return res.status(400).json({
+            success: false,
+            message: 'Email is required'
+        });
+    }
+
+    // Find user by email
+    const user = await User.findByEmail(email);
+
+    // Even if user doesn't exist, return success message
+    // This prevents attackers from checking which emails are registered
+    if (!user) {
+        // Add a small delay to prevent timing attacks
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return res.json({
+            success: true,
+            message: responseMessage
+        });
+    }
+
+    // Generate secure random token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // Hash the token before storing (for security)
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set expiration time (15 minutes from now)
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    // Delete any existing reset tokens for this user
+    const deleteStmt = db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?');
+    deleteStmt.run(user.id);
+
+    // Insert new reset token
+    const insertStmt = db.prepare(`
+        INSERT INTO password_reset_tokens (user_id, token, expires_at)
+        VALUES (?, ?, ?)
+    `);
+    insertStmt.run(user.id, hashedToken, expiresAt);
+
+    // Get the frontend URL from environment or use default
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    // Send password reset email
+    const emailSent = await sendPasswordResetEmail(user, resetUrl);
+
+    if (!emailSent) {
+        // If email failed to send, still return success but log the issue
+        console.error('Failed to send password reset email');
+    }
+
+    res.json({
+        success: true,
+        message: responseMessage
+    });
+});
+
+/**
+ * @desc    Reset password with token
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+const resetPassword = asyncHandler(async (req, res) => {
+    const { token, password, confirmPassword } = req.body;
+
+    // Validate input
+    if (!token || !password || !confirmPassword) {
+        return res.status(400).json({
+            success: false,
+            message: 'Token, password, and confirm password are required'
+        });
+    }
+
+    // Check if passwords match
+    if (password !== confirmPassword) {
+        return res.status(400).json({
+            success: false,
+            message: 'Passwords do not match'
+        });
+    }
+
+    // Validate password requirements
+    // Minimum 8 characters, at least one number, at least one uppercase letter
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Password must be at least 8 characters with at least one uppercase letter and one number'
+        });
+    }
+
+    // Hash the token to compare with stored hash
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find valid reset token
+    const stmt = db.prepare(`
+        SELECT * FROM password_reset_tokens 
+        WHERE token = ? AND used = 0 AND expires_at > datetime('now')
+    `);
+    const resetTokenRecord = stmt.get(hashedToken);
+
+    if (!resetTokenRecord) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid or expired reset token'
+        });
+    }
+
+    // Find the user
+    const user = await User.findById(resetTokenRecord.user_id);
+    if (!user) {
+        return res.status(400).json({
+            success: false,
+            message: 'User not found'
+        });
+    }
+
+    // Update the user's password
+    await User.updatePassword(user.id, password);
+
+    // Mark the reset token as used
+    const updateStmt = db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE id = ?');
+    updateStmt.run(resetTokenRecord.id);
+
+    // Optionally: Invalidate all other reset tokens for this user
+    const deleteStmt = db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND id != ?');
+    deleteStmt.run(user.id, resetTokenRecord.id);
+
+    res.json({
+        success: true,
+        message: 'Password has been reset successfully'
+    });
+});
+
 module.exports = {
     register,
     login,
@@ -280,5 +431,7 @@ module.exports = {
     updateSettings,
     getSettings,
     logout,
-    deleteAccount
+    deleteAccount,
+    forgotPassword,
+    resetPassword
 };

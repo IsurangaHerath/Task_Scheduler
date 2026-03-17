@@ -8,6 +8,8 @@ import AuthLayout from './components/common/AuthLayout';
 // Auth pages
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Main pages
 import Dashboard from './pages/Dashboard';
@@ -62,6 +64,8 @@ function App() {
             <Route element={<PublicRoute><AuthLayout /></PublicRoute>}>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
             </Route>
 
             {/* Protected routes */}

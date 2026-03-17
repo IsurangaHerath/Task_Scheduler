@@ -232,7 +232,7 @@
 }
 
 .spinner-lg {
-  @apply w-10 h-10 border-3;
+  @apply w-10 h-10 border-2;
 }
 
 /* Checkbox custom style */

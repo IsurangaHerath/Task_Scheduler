@@ -63,6 +63,25 @@ const initializeDatabase = () => {
         CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(userId, priority);
     `);
 
+    // Create password reset tokens table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    `);
+
+    // Create index for password reset tokens
+    db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
+        CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens(user_id);
+    `);
+
     console.log('✅ SQLite Database initialized');
 };
 

@@ -92,6 +92,26 @@ const deleteAccount = async (password) => {
     return response.data;
 };
 
+/**
+ * Request password reset
+ * @param {string} email - User email
+ * @returns {Promise} - API response
+ */
+const forgotPassword = async (email) => {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data;
+};
+
+/**
+ * Reset password with token
+ * @param {Object} data - { token, password, confirmPassword }
+ * @returns {Promise} - API response
+ */
+const resetPassword = async (data) => {
+    const response = await api.post('/auth/reset-password', data);
+    return response.data;
+};
+
 const authService = {
     register,
     login,
@@ -102,6 +122,8 @@ const authService = {
     getSettings,
     updateSettings,
     deleteAccount,
+    forgotPassword,
+    resetPassword
 };
 
 export default authService;

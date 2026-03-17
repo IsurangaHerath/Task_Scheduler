@@ -51,6 +51,46 @@ router.post(
 );
 
 /**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Request password reset
+ * @access  Public
+ */
+router.post(
+    '/forgot-password',
+    [
+        body('email')
+            .trim()
+            .notEmpty().withMessage('Email is required')
+            .isEmail().withMessage('Please enter a valid email')
+            .normalizeEmail()
+    ],
+    validate,
+    authController.forgotPassword
+);
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Reset password with token
+ * @access  Public
+ */
+router.post(
+    '/reset-password',
+    [
+        body('token')
+            .notEmpty().withMessage('Reset token is required'),
+        body('password')
+            .notEmpty().withMessage('Password is required')
+            .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+            .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/)
+            .withMessage('Password must contain at least one uppercase letter and one number'),
+        body('confirmPassword')
+            .notEmpty().withMessage('Confirm password is required')
+    ],
+    validate,
+    authController.resetPassword
+);
+
+/**
  * @route   GET /api/auth/me
  * @desc    Get current logged in user
  * @access  Private

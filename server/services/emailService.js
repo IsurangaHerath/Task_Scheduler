@@ -224,6 +224,92 @@ function getPriorityEmoji(priority) {
 }
 
 /**
+ * Send password reset email
+ * @param {Object} user - User object with email and name
+ * @param {string} resetUrl - Password reset URL
+ * @returns {Promise<boolean>} - Success status
+ */
+const sendPasswordResetEmail = async (user, resetUrl) => {
+    if (!transporter) {
+        console.log(`📧 Email skipped (not configured): Password reset for "${user.email}"`);
+        // In development, log the reset URL so it can be tested
+        console.log(`🔗 Password reset URL: ${resetUrl}`);
+        return false;
+    }
+
+    try {
+        const mailOptions = {
+            from: `"Task Scheduler" <${process.env.SMTP_USER}>`,
+            to: user.email,
+            subject: '🔐 Password Reset Request - Task Scheduler',
+            html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset</title>
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5fbf7; margin: 0; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+            
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #A8E6CF 0%, #6BCB77 100%); padding: 40px; text-align: center;">
+              <h1 style="color: #1b4332; margin: 0; font-size: 28px;">🔐 Password Reset</h1>
+            </div>
+            
+            <!-- Content -->
+            <div style="padding: 30px;">
+              <p style="color: #40916c; font-size: 16px; margin-bottom: 20px;
+                <p>Hi ${user.name},</p>
+              </p>
+              <p style="color: #1b4332; font-size: 16px; margin-bottom: 20px;
+                <p>We received a request to reset your password. Click the button below to create a new password:</p>
+              </p>
+              
+              <!-- Reset Button -->
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #A8E6CF 0%, #6BCB77 100%); color: #1b4332; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                  Reset Password
+                </a>
+              </div>
+              
+              <!-- Warning -->
+              <div style="background-color: #FFF3CD; border-left: 4px solid #FFD93D; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #856404; margin: 0; font-size: 14px;">
+                  <strong>⚠️ Important:</strong> This link will expire in 15 minutes. If you didn't request a password reset, please ignore this email.
+                </p>
+              </div>
+              
+              <!-- Direct Link -->
+              <p style="color: #74c69d; font-size: 12px; margin-top: 20px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${resetUrl}" style="color: #6BCB77;">${resetUrl}</a>
+              </p>
+            </div>
+            
+            <!-- Footer -->
+            <div style="background-color: #f5fbf7; padding: 20px; text-align: center; border-top: 1px solid #e8f5e9;">
+              <p style="color: #74c69d; font-size: 12px; margin: 0;">
+                Task Scheduler - Your productivity companion
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`📧 Password reset email sent to ${user.email}`);
+        return true;
+    } catch (error) {
+        console.error('❌ Password reset email error:', error.message);
+        return false;
+    }
+};
+
+/**
  * Verify email configuration
  * @returns {Promise<boolean>} - Configuration status
  */
@@ -245,5 +331,6 @@ const verifyEmailConfig = async () => {
 module.exports = {
     sendTaskReminder,
     sendWelcomeEmail,
+    sendPasswordResetEmail,
     verifyEmailConfig
 };

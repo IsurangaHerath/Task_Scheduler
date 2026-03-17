@@ -109,9 +109,17 @@ const Login = () => {
 
                 {/* Password field */}
                 <div>
-                    <label htmlFor="password" className="label">
-                        Password
-                    </label>
+                    <div className="flex items-center justify-between">
+                        <label htmlFor="password" className="label">
+                            Password
+                        </label>
+                        <Link
+                            to="/forgot-password"
+                            className="text-sm text-primary-dark hover:text-primary-hover transition-colors"
+                        >
+                            Forgot password?
+                        </Link>
+                    </div>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
                         <input
