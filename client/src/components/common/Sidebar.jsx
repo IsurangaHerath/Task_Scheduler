@@ -15,10 +15,21 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
+/**
+ * Sidebar Component
+ * 
+ * Main navigation sidebar that provides access to all application pages.
+ * Supports both desktop (fixed sidebar) and mobile (slide-out drawer) layouts.
+ * Admin-specific navigation items are conditionally rendered based on user role.
+ * 
+ * @param {boolean} isOpen - Controls mobile sidebar visibility
+ * @param {function} onClose - Callback to close mobile sidebar
+ */
 const Sidebar = ({ isOpen, onClose }) => {
     const { user, logout } = useAuth();
 
-    const navItems = [
+    // Standard navigation items available to all authenticated users
+    const mainNavigationItems = [
         { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { path: '/today', icon: CheckSquare, label: "Today's Tasks" },
         { path: '/weekly-tracker', icon: CalendarDays, label: 'Weekly Tracker' },
@@ -28,14 +39,38 @@ const Sidebar = ({ isOpen, onClose }) => {
         { path: '/settings', icon: Settings, label: 'Settings' },
     ];
 
-    const adminNavItems = [
+    // Admin-only navigation items
+    const adminNavigationItems = [
         { path: '/admin', icon: Shield, label: 'Admin Panel' },
         { path: '/admin/users', icon: Users, label: 'User Management' },
     ];
 
+    // Determines the appropriate CSS class based on navigation state
+    const getNavLinkClass = ({ isActive }) => 
+        isActive ? 'sidebar-link-active' : 'sidebar-link';
+
+    // Renders a single navigation link item
+    const renderNavLink = (item) => (
+        <NavLink
+            key={item.path}
+            to={item.path}
+            onClick={onClose}
+            className={getNavLinkClass}
+        >
+            <item.icon className="w-5 h-5" />
+            <span>{item.label}</span>
+        </NavLink>
+    );
+
+    // Get user initials for avatar display
+    const userInitial = user?.name?.charAt(0).toUpperCase() || 'U';
+    const displayName = user?.name || 'User';
+    const displayEmail = user?.email || 'user@example.com';
+
+    // Reusable sidebar content to avoid duplication between desktop and mobile
     const sidebarContent = (
         <div className="h-full flex flex-col">
-            {/* Logo */}
+            {/* Application Logo and Brand */}
             <div className="p-6 border-b border-primary-light/30">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -44,32 +79,22 @@ const Sidebar = ({ isOpen, onClose }) => {
                         </div>
                         <span className="text-xl font-bold text-text-primary">TaskFlow</span>
                     </div>
+                    {/* Close button for mobile sidebar */}
                     <button
                         onClick={onClose}
                         className="lg:hidden p-2 hover:bg-primary-light/30 rounded-lg transition-colors"
+                        aria-label="Close sidebar"
                     >
                         <X className="w-5 h-5 text-text-secondary" />
                     </button>
                 </div>
             </div>
 
-            {/* Navigation */}
+            {/* Main Navigation Menu */}
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin">
-                {navItems.map((item) => (
-                    <NavLink
-                        key={item.path}
-                        to={item.path}
-                        onClick={onClose}
-                        className={({ isActive }) =>
-                            isActive ? 'sidebar-link-active' : 'sidebar-link'
-                        }
-                    >
-                        <item.icon className="w-5 h-5" />
-                        <span>{item.label}</span>
-                    </NavLink>
-                ))}
+                {mainNavigationItems.map(renderNavLink)}
 
-                {/* Admin Section */}
+                {/* Admin Section - Only visible to users with admin role */}
                 {user?.role === 'admin' && (
                     <>
                         <div className="pt-4 pb-2">
@@ -78,39 +103,29 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <p className="px-4 py-2 text-xs font-semibold text-text-muted uppercase tracking-wider">
                             Admin
                         </p>
-                        {adminNavItems.map((item) => (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                onClick={onClose}
-                                className={({ isActive }) =>
-                                    isActive ? 'sidebar-link-active' : 'sidebar-link'
-                                }
-                            >
-                                <item.icon className="w-5 h-5" />
-                                <span>{item.label}</span>
-                            </NavLink>
-                        ))}
+                        {adminNavigationItems.map(renderNavLink)}
                     </>
                 )}
             </nav>
 
-            {/* User section */}
+            {/* User Profile and Logout Section */}
             <div className="p-4 border-t border-primary-light/30">
+                {/* User Information Card */}
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-primary-light/20">
                     <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center text-white font-semibold">
-                        {user?.name?.charAt(0).toUpperCase() || 'U'}
+                        {userInitial}
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">
-                            {user?.name || 'User'}
+                            {displayName}
                         </p>
                         <p className="text-xs text-text-muted truncate">
-                            {user?.email || 'user@example.com'}
+                            {displayEmail}
                         </p>
                     </div>
                 </div>
 
+                {/* Logout Button */}
                 <button
                     onClick={logout}
                     className="w-full mt-3 flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary hover:bg-priority-high/10 hover:text-priority-high transition-all duration-200"
@@ -124,12 +139,12 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     return (
         <>
-            {/* Desktop sidebar */}
+            {/* Desktop Sidebar - Fixed position on large screens */}
             <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 bg-background-sidebar border-r border-primary-light/30">
                 {sidebarContent}
             </aside>
 
-            {/* Mobile sidebar */}
+            {/* Mobile Sidebar - Slide-in drawer on smaller screens */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.aside

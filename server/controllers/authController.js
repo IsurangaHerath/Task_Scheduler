@@ -7,9 +7,26 @@ const crypto = require('crypto');
 const { db } = require('../config/db');
 
 /**
- * @desc    Register new user
- * @route   POST /api/auth/register
- * @access  Public
+ * Authentication Controller
+ * 
+ * Handles all authentication-related API endpoints including:
+ * - User registration and login
+ * - Profile management
+ * - Password management (change, reset)
+ * - User settings
+ * - Account deletion
+ */
+
+// ==================== Public Routes ====================
+
+/**
+ * Register a new user account
+ * 
+ * @route POST /api/auth/register
+ * @access Public
+ * @body {string} name - User's display name
+ * @body {string} email - User's email address (must be unique)
+ * @body {string} password - User's password
  */
 const register = asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
@@ -24,34 +41,37 @@ const register = asyncHandler(async (req, res) => {
     }
 
     // Create new user
-    const user = await User.create({
+    const newUser = await User.create({
         name,
         email,
         password
     });
 
-    // Generate token
-    const token = generateToken(user.id);
+    // Generate authentication token
+    const token = generateToken(newUser.id);
 
     res.status(201).json({
         success: true,
         message: 'Registration successful',
         data: {
-            user: user,
+            user: newUser,
             token
         }
     });
 });
 
 /**
- * @desc    Login user
- * @route   POST /api/auth/login
- * @access  Public
+ * Authenticate user and get token
+ * 
+ * @route POST /api/auth/login
+ * @access Public
+ * @body {string} email - User's email address
+ * @body {string} password - User's password
  */
 const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
-    // Find user and include password for comparison
+    // Find user by email (includes password for verification)
     const user = await User.findByEmailWithPassword(email);
 
     if (!user) {
@@ -61,24 +81,28 @@ const login = asyncHandler(async (req, res) => {
         });
     }
 
-    // Compare password
-    const isMatch = await User.comparePassword(password, user.password);
-    if (!isMatch) {
+    // Verify password
+    const isPasswordValid = await User.comparePassword(password, user.password);
+    if (!isPasswordValid) {
         return res.status(401).json({
             success: false,
             message: 'Invalid email or password'
         });
     }
 
-    // Generate token
+    // Generate authentication token
     const token = generateToken(user.id);
 
-    // Track session for admin panel
+    // Track session for admin panel functionality
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    sessionService.trackSession(user.id, token, new Date(decoded.exp * 1000).toISOString());
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    sessionService.trackSession(
+        user.id, 
+        token, 
+        new Date(decodedToken.exp * 1000).toISOString()
+    );
 
-    // Remove password from response
+    // Remove password from response for security
     delete user.password;
 
     res.json({
@@ -92,205 +116,18 @@ const login = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Get current logged in user
- * @route   GET /api/auth/me
- * @access  Private
- */
-const getMe = asyncHandler(async (req, res) => {
-    res.json({
-        success: true,
-        data: {
-            user: req.user
-        }
-    });
-});
-
-/**
- * @desc    Update user profile
- * @route   PUT /api/auth/profile
- * @access  Private
- */
-const updateProfile = asyncHandler(async (req, res) => {
-    const { name, email } = req.body;
-
-    // Build update object
-    const updateData = {};
-    if (name) updateData.name = name;
-
-    // Check if email is being changed and if it's already taken
-    if (email && email !== req.user.email) {
-        const existingUser = await User.findByEmail(email);
-        if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email already in use'
-            });
-        }
-        updateData.email = email;
-    }
-
-    // Update user
-    const user = await User.update(req.user.id, updateData);
-
-    res.json({
-        success: true,
-        message: 'Profile updated successfully',
-        data: {
-            user: user
-        }
-    });
-});
-
-/**
- * @desc    Change user password
- * @route   PUT /api/auth/password
- * @access  Private
- */
-const changePassword = asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword } = req.body;
-
-    // Get user with password
-    const user = await User.findByIdWithPassword(req.user.id);
-
-    // Verify current password
-    const isMatch = await User.comparePassword(currentPassword, user.password);
-    if (!isMatch) {
-        return res.status(401).json({
-            success: false,
-            message: 'Current password is incorrect'
-        });
-    }
-
-    // Update password
-    await User.updatePassword(req.user.id, newPassword);
-
-    // Generate new token
-    const token = generateToken(req.user.id);
-
-    res.json({
-        success: true,
-        message: 'Password changed successfully',
-        data: {
-            token
-        }
-    });
-});
-
-/**
- * @desc    Update user settings
- * @route   PUT /api/auth/settings
- * @access  Private
- */
-const updateSettings = asyncHandler(async (req, res) => {
-    const { notifications, theme, reminderTime } = req.body;
-
-    const user = await User.findById(req.user.id);
-
-    // Update settings
-    if (notifications) {
-        user.settings.notifications = {
-            ...user.settings.notifications,
-            ...notifications
-        };
-    }
-
-    if (theme) {
-        user.settings.theme = theme;
-    }
-
-    if (reminderTime !== undefined) {
-        user.settings.reminderTime = reminderTime;
-    }
-
-    // Save updated settings
-    await User.update(req.user.id, { settings: user.settings });
-
-    const updatedUser = await User.findById(req.user.id);
-
-    res.json({
-        success: true,
-        message: 'Settings updated successfully',
-        data: {
-            settings: updatedUser.settings
-        }
-    });
-});
-
-/**
- * @desc    Get user settings
- * @route   GET /api/auth/settings
- * @access  Private
- */
-const getSettings = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user.id);
-
-    res.json({
-        success: true,
-        data: {
-            settings: user.settings
-        }
-    });
-});
-
-/**
- * @desc    Logout user (client-side token removal)
- * @route   POST /api/auth/logout
- * @access  Private
- */
-const logout = asyncHandler(async (req, res) => {
-    // Remove session from tracking
-    sessionService.removeSession(req.user.id);
-    
-    res.json({
-        success: true,
-        message: 'Logged out successfully'
-    });
-});
-
-/**
- * @desc    Delete user account
- * @route   DELETE /api/auth/account
- * @access  Private
- */
-const deleteAccount = asyncHandler(async (req, res) => {
-    const { password } = req.body;
-
-    // Get user with password
-    const user = await User.findByIdWithPassword(req.user.id);
-
-    // Verify password before deletion
-    const isMatch = await User.comparePassword(password, user.password);
-    if (!isMatch) {
-        return res.status(401).json({
-            success: false,
-            message: 'Password is incorrect'
-        });
-    }
-
-    // Delete user's tasks first
-    const Task = require('../models/Task');
-    const tasks = Task.findAll(req.user.id);
-    tasks.forEach(task => Task.delete(task.id));
-
-    // Delete user
-    await User.delete(req.user.id);
-
-    res.json({
-        success: true,
-        message: 'Account deleted successfully'
-    });
-});
-
-/**
- * @desc    Request password reset
- * @route   POST /api/auth/forgot-password
- * @access  Public
+ * Request password reset email
+ * 
+ * @route POST /api/auth/forgot-password
+ * @access Public
+ * @body {string} email - User's email address
+ * 
+ * Note: Always returns success to prevent email enumeration attacks
  */
 const forgotPassword = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    // Security: Don't reveal whether the email exists
-    // Always return success to prevent email enumeration attacks
+    // Generic response message for security
     const responseMessage = 'If an account with that email exists, we have sent password reset instructions.';
 
     if (!email) {
@@ -303,10 +140,10 @@ const forgotPassword = asyncHandler(async (req, res) => {
     // Find user by email
     const user = await User.findByEmail(email);
 
-    // Even if user doesn't exist, return success message
-    // This prevents attackers from checking which emails are registered
+    // Always return success to prevent email enumeration
+    // This is a security best practice
     if (!user) {
-        // Add a small delay to prevent timing attacks
+        // Add small delay to prevent timing attacks
         await new Promise(resolve => setTimeout(resolve, 100));
         return res.json({
             success: true,
@@ -314,10 +151,10 @@ const forgotPassword = asyncHandler(async (req, res) => {
         });
     }
 
-    // Generate secure random token
+    // Generate secure random reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     
-    // Hash the token before storing (for security)
+    // Hash token before storing in database (security best practice)
     const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     // Set expiration time (15 minutes from now)
@@ -342,7 +179,6 @@ const forgotPassword = asyncHandler(async (req, res) => {
     const emailSent = await sendPasswordResetEmail(user, resetUrl);
 
     if (!emailSent) {
-        // If email failed to send, still return success but log the issue
         console.error('Failed to send password reset email');
     }
 
@@ -353,14 +189,18 @@ const forgotPassword = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Reset password with token
- * @route   POST /api/auth/reset-password
- * @access  Public
+ * Reset password using token
+ * 
+ * @route POST /api/auth/reset-password
+ * @access Public
+ * @body {string} token - Password reset token from email
+ * @body {string} password - New password
+ * @body {string} confirmPassword - Confirmation of new password
  */
 const resetPassword = asyncHandler(async (req, res) => {
     const { token, password, confirmPassword } = req.body;
 
-    // Validate input
+    // Validate required fields
     if (!token || !password || !confirmPassword) {
         return res.status(400).json({
             success: false,
@@ -376,8 +216,8 @@ const resetPassword = asyncHandler(async (req, res) => {
         });
     }
 
-    // Validate password requirements
-    // Minimum 8 characters, at least one number, at least one uppercase letter
+    // Validate password strength requirements
+    // Minimum 8 characters, at least one lowercase, one uppercase, and one number
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(password)) {
         return res.status(400).json({
@@ -389,7 +229,7 @@ const resetPassword = asyncHandler(async (req, res) => {
     // Hash the token to compare with stored hash
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Find valid reset token
+    // Find valid (unused and not expired) reset token
     const stmt = db.prepare(`
         SELECT * FROM password_reset_tokens 
         WHERE token = ? AND used = 0 AND expires_at > datetime('now')
@@ -403,7 +243,7 @@ const resetPassword = asyncHandler(async (req, res) => {
         });
     }
 
-    // Find the user
+    // Find the user associated with the token
     const user = await User.findById(resetTokenRecord.user_id);
     if (!user) {
         return res.status(400).json({
@@ -412,14 +252,14 @@ const resetPassword = asyncHandler(async (req, res) => {
         });
     }
 
-    // Update the user's password
+    // Update the user's password (will be hashed in the model)
     await User.updatePassword(user.id, password);
 
     // Mark the reset token as used
     const updateStmt = db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE id = ?');
     updateStmt.run(resetTokenRecord.id);
 
-    // Optionally: Invalidate all other reset tokens for this user
+    // Invalidate all other reset tokens for this user (security)
     const deleteStmt = db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND id != ?');
     deleteStmt.run(user.id, resetTokenRecord.id);
 
@@ -429,6 +269,220 @@ const resetPassword = asyncHandler(async (req, res) => {
     });
 });
 
+// ==================== Protected Routes ====================
+
+/**
+ * Get current authenticated user profile
+ * 
+ * @route GET /api/auth/me
+ * @access Private
+ */
+const getMe = asyncHandler(async (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            user: req.user
+        }
+    });
+});
+
+/**
+ * Update user profile (name and email)
+ * 
+ * @route PUT /api/auth/profile
+ * @access Private
+ * @body {string} name - New display name
+ * @body {string} email - New email address
+ */
+const updateProfile = asyncHandler(async (req, res) => {
+    const { name, email } = req.body;
+
+    // Build update object with provided fields
+    const updateData = {};
+    if (name) updateData.name = name;
+
+    // Check if email is being changed and verify it's not already taken
+    if (email && email !== req.user.email) {
+        const existingUser = await User.findByEmail(email);
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email already in use'
+            });
+        }
+        updateData.email = email;
+    }
+
+    // Update user in database
+    const updatedUser = await User.update(req.user.id, updateData);
+
+    res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: {
+            user: updatedUser
+        }
+    });
+});
+
+/**
+ * Change user password (requires current password)
+ * 
+ * @route PUT /api/auth/password
+ * @access Private
+ * @body {string} currentPassword - User's current password
+ * @body {string} newPassword - New password to set
+ */
+const changePassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    // Get user with password for verification
+    const user = await User.findByIdWithPassword(req.user.id);
+
+    // Verify current password
+    const isPasswordValid = await User.comparePassword(currentPassword, user.password);
+    if (!isPasswordValid) {
+        return res.status(401).json({
+            success: false,
+            message: 'Current password is incorrect'
+        });
+    }
+
+    // Update password
+    await User.updatePassword(req.user.id, newPassword);
+
+    // Generate new token after password change
+    const token = generateToken(req.user.id);
+
+    res.json({
+        success: true,
+        message: 'Password changed successfully',
+        data: {
+            token
+        }
+    });
+});
+
+/**
+ * Update user settings
+ * 
+ * @route PUT /api/auth/settings
+ * @access Private
+ * @body {Object} notifications - Notification preferences
+ * @body {string} theme - Theme preference ('light' or 'dark')
+ * @body {number} reminderTime - Default reminder time in minutes
+ */
+const updateSettings = asyncHandler(async (req, res) => {
+    const { notifications, theme, reminderTime } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    // Update notification settings
+    if (notifications) {
+        user.settings.notifications = {
+            ...user.settings.notifications,
+            ...notifications
+        };
+    }
+
+    // Update theme preference
+    if (theme) {
+        user.settings.theme = theme;
+    }
+
+    // Update reminder time
+    if (reminderTime !== undefined) {
+        user.settings.reminderTime = reminderTime;
+    }
+
+    // Save updated settings
+    await User.update(req.user.id, { settings: user.settings });
+
+    const updatedUser = await User.findById(req.user.id);
+
+    res.json({
+        success: true,
+        message: 'Settings updated successfully',
+        data: {
+            settings: updatedUser.settings
+        }
+    });
+});
+
+/**
+ * Get user settings
+ * 
+ * @route GET /api/auth/settings
+ * @access Private
+ */
+const getSettings = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user.id);
+
+    res.json({
+        success: true,
+        data: {
+            settings: user.settings
+        }
+    });
+});
+
+/**
+ * Logout user (server-side session cleanup)
+ * 
+ * @route POST /api/auth/logout
+ * @access Private
+ * 
+ * Note: Client should also remove the JWT token from storage
+ */
+const logout = asyncHandler(async (req, res) => {
+    // Remove session from tracking
+    sessionService.removeSession(req.user.id);
+    
+    res.json({
+        success: true,
+        message: 'Logged out successfully'
+    });
+});
+
+/**
+ * Delete user account
+ * 
+ * @route DELETE /api/auth/account
+ * @access Private
+ * @body {string} password - Current password for verification
+ * 
+ * Note: This will also delete all user's tasks
+ */
+const deleteAccount = asyncHandler(async (req, res) => {
+    const { password } = req.body;
+
+    // Get user with password for verification
+    const user = await User.findByIdWithPassword(req.user.id);
+
+    // Verify password before deletion
+    const isPasswordValid = await User.comparePassword(password, user.password);
+    if (!isPasswordValid) {
+        return res.status(401).json({
+            success: false,
+            message: 'Password is incorrect'
+        });
+    }
+
+    // Delete user's tasks first (maintain referential integrity)
+    const Task = require('../models/Task');
+    const userTasks = Task.findAll(req.user.id);
+    userTasks.forEach(task => Task.delete(task.id));
+
+    // Delete user account
+    await User.delete(req.user.id);
+
+    res.json({
+        success: true,
+        message: 'Account deleted successfully'
+    });
+});
+
+// Export all controller functions
 module.exports = {
     register,
     login,

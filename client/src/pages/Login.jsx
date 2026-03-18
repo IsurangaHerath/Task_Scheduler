@@ -4,33 +4,50 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+/**
+ * Login Page Component
+ * 
+ * Provides user authentication functionality with email and password.
+ * Includes form validation, password visibility toggle, and navigation to dashboard.
+ */
 const Login = () => {
     const navigate = useNavigate();
     const { login, loading } = useAuth();
-    const [showPassword, setShowPassword] = useState(false);
+    
+    // UI state
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
+    
+    // Form data state
     const [formData, setFormData] = useState({
         email: '',
         password: ''
     });
-    const [errors, setErrors] = useState({});
 
+    // Email validation regex pattern
+    const EMAIL_REGEX = /\S+@\S+\.\S+/;
+
+    // Validate all form fields
     const validateForm = () => {
         const newErrors = {};
 
+        // Validate email
         if (!formData.email) {
             newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!EMAIL_REGEX.test(formData.email)) {
             newErrors.email = 'Please enter a valid email';
         }
 
+        // Validate password
         if (!formData.password) {
             newErrors.password = 'Password is required';
         }
 
-        setErrors(newErrors);
+        setFormErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
+    // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -42,12 +59,20 @@ const Login = () => {
         }
     };
 
-    const handleChange = (e) => {
+    // Handle input field changes
+    const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
+        
+        // Clear error for this field if it exists
+        if (formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: '' }));
         }
+    };
+
+    // Toggle password visibility
+    const togglePasswordVisibility = () => {
+        setIsPasswordVisible(!isPasswordVisible);
     };
 
     return (
@@ -57,7 +82,7 @@ const Login = () => {
             transition={{ duration: 0.5 }}
             className="w-full"
         >
-            {/* Mobile logo */}
+            {/* Mobile Logo - Only visible on small screens */}
             <div className="lg:hidden text-center mb-8">
                 <div className="inline-flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-primary-light to-primary-dark rounded-xl flex items-center justify-center shadow-soft">
@@ -79,13 +104,15 @@ const Login = () => {
                 </div>
             </div>
 
+            {/* Page Header */}
             <div className="text-center mb-8">
                 <h1 className="text-2xl font-bold text-text-primary mb-2">Welcome back!</h1>
                 <p className="text-text-secondary">Sign in to continue to your tasks</p>
             </div>
 
+            {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Email field */}
+                {/* Email Input */}
                 <div>
                     <label htmlFor="email" className="label">
                         Email Address
@@ -97,17 +124,18 @@ const Login = () => {
                             id="email"
                             name="email"
                             value={formData.email}
-                            onChange={handleChange}
+                            onChange={handleInputChange}
                             placeholder="Enter your email"
-                            className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+                            className={`input pl-10 ${formErrors.email ? 'input-error' : ''}`}
+                            autoComplete="email"
                         />
                     </div>
-                    {errors.email && (
-                        <p className="text-priority-high text-sm mt-1">{errors.email}</p>
+                    {formErrors.email && (
+                        <p className="text-priority-high text-sm mt-1">{formErrors.email}</p>
                     )}
                 </div>
 
-                {/* Password field */}
+                {/* Password Input */}
                 <div>
                     <div className="flex items-center justify-between">
                         <label htmlFor="password" className="label">
@@ -123,28 +151,34 @@ const Login = () => {
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
                         <input
-                            type={showPassword ? 'text' : 'password'}
+                            type={isPasswordVisible ? 'text' : 'password'}
                             id="password"
                             name="password"
                             value={formData.password}
-                            onChange={handleChange}
+                            onChange={handleInputChange}
                             placeholder="Enter your password"
-                            className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
+                            className={`input pl-10 pr-10 ${formErrors.password ? 'input-error' : ''}`}
+                            autoComplete="current-password"
                         />
                         <button
                             type="button"
-                            onClick={() => setShowPassword(!showPassword)}
+                            onClick={togglePasswordVisibility}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition-colors"
+                            aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
                         >
-                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            {isPasswordVisible ? (
+                                <EyeOff className="w-5 h-5" />
+                            ) : (
+                                <Eye className="w-5 h-5" />
+                            )}
                         </button>
                     </div>
-                    {errors.password && (
-                        <p className="text-priority-high text-sm mt-1">{errors.password}</p>
+                    {formErrors.password && (
+                        <p className="text-priority-high text-sm mt-1">{formErrors.password}</p>
                     )}
                 </div>
 
-                {/* Submit button */}
+                {/* Submit Button */}
                 <button
                     type="submit"
                     disabled={loading}
@@ -164,7 +198,7 @@ const Login = () => {
                 </button>
             </form>
 
-            {/* Register link */}
+            {/* Registration Link */}
             <p className="text-center mt-6 text-text-secondary">
                 Don't have an account?{' '}
                 <Link

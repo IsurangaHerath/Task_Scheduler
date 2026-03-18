@@ -4,9 +4,22 @@ import { X, Calendar, Clock, Tag, Bell, Save } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { format } from 'date-fns';
 
+/**
+ * TaskModal Component
+ * 
+ * Modal dialog for creating and editing tasks.
+ * Provides form validation and handles task submission to the backend.
+ * 
+ * @param {boolean} isOpen - Controls modal visibility
+ * @param {function} onClose - Callback to close the modal
+ * @param {object} task - Optional task object for edit mode
+ */
 const TaskModal = ({ isOpen, onClose, task = null }) => {
     const { createTask, updateTask } = useTasks();
-    const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
+    
+    // Form state with default values
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -16,35 +29,41 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
         category: 'general',
         reminderEnabled: true
     });
-    const [errors, setErrors] = useState({});
 
-    // Populate form if editing existing task
+    // Determine if we're in edit mode or create mode
+    const isEditMode = task !== null;
+
+    // Reset form when modal opens/closes or task changes
     useEffect(() => {
-        if (task) {
-            setFormData({
-                title: task.title || '',
-                description: task.description || '',
-                dueDate: format(new Date(task.dueDate), 'yyyy-MM-dd'),
-                time: task.time || '09:00',
-                priority: task.priority || 'medium',
-                category: task.category || 'general',
-                reminderEnabled: task.reminderEnabled ?? true
-            });
-        } else {
-            // Reset form for new task
-            setFormData({
-                title: '',
-                description: '',
-                dueDate: format(new Date(), 'yyyy-MM-dd'),
-                time: '09:00',
-                priority: 'medium',
-                category: 'general',
-                reminderEnabled: true
-            });
+        if (isOpen) {
+            if (task) {
+                // Populate form with existing task data for editing
+                setFormData({
+                    title: task.title || '',
+                    description: task.description || '',
+                    dueDate: format(new Date(task.dueDate), 'yyyy-MM-dd'),
+                    time: task.time || '09:00',
+                    priority: task.priority || 'medium',
+                    category: task.category || 'general',
+                    reminderEnabled: task.reminderEnabled ?? true
+                });
+            } else {
+                // Reset to defaults for new task
+                setFormData({
+                    title: '',
+                    description: '',
+                    dueDate: format(new Date(), 'yyyy-MM-dd'),
+                    time: '09:00',
+                    priority: 'medium',
+                    category: 'general',
+                    reminderEnabled: true
+                });
+            }
+            setFormErrors({});
         }
-        setErrors({});
     }, [task, isOpen]);
 
+    // Validate form fields before submission
     const validateForm = () => {
         const newErrors = {};
 
@@ -56,55 +75,60 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
             newErrors.dueDate = 'Due date is required';
         }
 
-        setErrors(newErrors);
+        setFormErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
+    // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!validateForm()) return;
 
-        setLoading(true);
+        setIsSubmitting(true);
 
         try {
-            const taskData = {
+            const taskPayload = {
                 ...formData,
                 dueDate: new Date(formData.dueDate)
             };
 
             let result;
-            if (task) {
-                result = await updateTask(task._id, taskData);
+            if (isEditMode) {
+                result = await updateTask(task._id, taskPayload);
             } else {
-                result = await createTask(taskData);
+                result = await createTask(taskPayload);
             }
 
             if (result.success) {
                 onClose();
             }
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
-    const handleChange = (e) => {
+    // Handle input field changes
+    const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
+        
+        // Clear error for this field if it exists
+        if (formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: '' }));
         }
     };
 
+    // Don't render if modal is closed
     if (!isOpen) return null;
 
     return (
         <AnimatePresence>
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                {/* Backdrop */}
+                {/* Backdrop Overlay */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -113,29 +137,30 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                     className="absolute inset-0 bg-black/50"
                 />
 
-                {/* Modal */}
+                {/* Modal Container */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     className="relative w-full max-w-lg bg-background-card rounded-2xl shadow-hover overflow-hidden"
                 >
-                    {/* Header */}
+                    {/* Modal Header */}
                     <div className="flex items-center justify-between p-6 border-b border-primary-light/20">
                         <h2 className="text-xl font-semibold text-text-primary">
-                            {task ? 'Edit Task' : 'Create New Task'}
+                            {isEditMode ? 'Edit Task' : 'Create New Task'}
                         </h2>
                         <button
                             onClick={onClose}
                             className="p-2 hover:bg-primary-light/30 rounded-lg transition-colors"
+                            aria-label="Close modal"
                         >
                             <X className="w-5 h-5 text-text-muted" />
                         </button>
                     </div>
 
-                    {/* Form */}
+                    {/* Task Form */}
                     <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                        {/* Title */}
+                        {/* Title Input */}
                         <div>
                             <label htmlFor="title" className="label">
                                 Task Title *
@@ -145,16 +170,16 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                 id="title"
                                 name="title"
                                 value={formData.title}
-                                onChange={handleChange}
+                                onChange={handleInputChange}
                                 placeholder="Enter task title"
-                                className={`input ${errors.title ? 'input-error' : ''}`}
+                                className={`input ${formErrors.title ? 'input-error' : ''}`}
                             />
-                            {errors.title && (
-                                <p className="text-priority-high text-sm mt-1">{errors.title}</p>
+                            {formErrors.title && (
+                                <p className="text-priority-high text-sm mt-1">{formErrors.title}</p>
                             )}
                         </div>
 
-                        {/* Description */}
+                        {/* Description Textarea */}
                         <div>
                             <label htmlFor="description" className="label">
                                 Description
@@ -163,15 +188,16 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                 id="description"
                                 name="description"
                                 value={formData.description}
-                                onChange={handleChange}
+                                onChange={handleInputChange}
                                 placeholder="Add a description (optional)"
                                 rows={3}
                                 className="input resize-none"
                             />
                         </div>
 
-                        {/* Date and Time */}
+                        {/* Date and Time Row */}
                         <div className="grid grid-cols-2 gap-4">
+                            {/* Due Date */}
                             <div>
                                 <label htmlFor="dueDate" className="label">
                                     <Calendar className="w-4 h-4 inline mr-1" />
@@ -182,14 +208,15 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                     id="dueDate"
                                     name="dueDate"
                                     value={formData.dueDate}
-                                    onChange={handleChange}
-                                    className={`input ${errors.dueDate ? 'input-error' : ''}`}
+                                    onChange={handleInputChange}
+                                    className={`input ${formErrors.dueDate ? 'input-error' : ''}`}
                                 />
-                                {errors.dueDate && (
-                                    <p className="text-priority-high text-sm mt-1">{errors.dueDate}</p>
+                                {formErrors.dueDate && (
+                                    <p className="text-priority-high text-sm mt-1">{formErrors.dueDate}</p>
                                 )}
                             </div>
 
+                            {/* Time */}
                             <div>
                                 <label htmlFor="time" className="label">
                                     <Clock className="w-4 h-4 inline mr-1" />
@@ -200,14 +227,15 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                     id="time"
                                     name="time"
                                     value={formData.time}
-                                    onChange={handleChange}
+                                    onChange={handleInputChange}
                                     className="input"
                                 />
                             </div>
                         </div>
 
-                        {/* Priority and Category */}
+                        {/* Priority and Category Row */}
                         <div className="grid grid-cols-2 gap-4">
+                            {/* Priority Select */}
                             <div>
                                 <label htmlFor="priority" className="label">
                                     Priority
@@ -216,7 +244,7 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                     id="priority"
                                     name="priority"
                                     value={formData.priority}
-                                    onChange={handleChange}
+                                    onChange={handleInputChange}
                                     className="input"
                                 >
                                     <option value="low">Low</option>
@@ -225,6 +253,7 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                 </select>
                             </div>
 
+                            {/* Category Input */}
                             <div>
                                 <label htmlFor="category" className="label">
                                     <Tag className="w-4 h-4 inline mr-1" />
@@ -235,21 +264,21 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                     id="category"
                                     name="category"
                                     value={formData.category}
-                                    onChange={handleChange}
+                                    onChange={handleInputChange}
                                     placeholder="e.g., Work, Personal"
                                     className="input"
                                 />
                             </div>
                         </div>
 
-                        {/* Reminder toggle */}
+                        {/* Reminder Toggle */}
                         <div className="flex items-center gap-3">
                             <input
                                 type="checkbox"
                                 id="reminderEnabled"
                                 name="reminderEnabled"
                                 checked={formData.reminderEnabled}
-                                onChange={handleChange}
+                                onChange={handleInputChange}
                                 className="checkbox-custom"
                             />
                             <label htmlFor="reminderEnabled" className="flex items-center gap-2 text-text-secondary">
@@ -258,7 +287,7 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                             </label>
                         </div>
 
-                        {/* Actions */}
+                        {/* Form Actions */}
                         <div className="flex gap-3 pt-4">
                             <button
                                 type="button"
@@ -269,10 +298,10 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={isSubmitting}
                                 className="btn-primary flex-1"
                             >
-                                {loading ? (
+                                {isSubmitting ? (
                                     <span className="flex items-center justify-center gap-2">
                                         <div className="spinner" />
                                         Saving...
@@ -280,7 +309,7 @@ const TaskModal = ({ isOpen, onClose, task = null }) => {
                                 ) : (
                                     <span className="flex items-center justify-center gap-2">
                                         <Save className="w-5 h-5" />
-                                        {task ? 'Update Task' : 'Create Task'}
+                                        {isEditMode ? 'Update Task' : 'Create Task'}
                                     </span>
                                 )}
                             </button>

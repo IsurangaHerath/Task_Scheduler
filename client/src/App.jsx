@@ -25,7 +25,13 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
 import AdminSessions from './pages/AdminSessions';
 
-// Protected Route wrapper
+/**
+ * Protected Route Wrapper
+ * 
+ * Ensures only authenticated users can access the wrapped route.
+ * Shows loading spinner while authentication status is being checked.
+ * Redirects to login page if user is not authenticated.
+ */
 const ProtectedRoute = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
 
@@ -44,7 +50,14 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-// Public Route wrapper (redirect if already authenticated)
+/**
+ * Public Route Wrapper
+ * 
+ * Ensures unauthenticated users can access the wrapped route.
+ * Shows loading spinner while authentication status is being checked.
+ * Redirects to dashboard if user is already authenticated.
+ * Used for auth pages like Login, Register, etc.
+ */
 const PublicRoute = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
 
@@ -63,7 +76,13 @@ const PublicRoute = ({ children }) => {
     return children;
 };
 
-// Admin Route wrapper
+/**
+ * Admin Route Wrapper
+ * 
+ * Ensures only users with admin role can access the wrapped route.
+ * Shows loading spinner while authentication status is being checked.
+ * Redirects to login if not authenticated, or to dashboard if not admin.
+ */
 const AdminRoute = ({ children }) => {
     const { user, isAuthenticated, loading } = useAuth();
 
@@ -86,10 +105,17 @@ const AdminRoute = ({ children }) => {
     return children;
 };
 
+/**
+ * Main Application Component
+ * 
+ * Defines the routing structure for the entire application.
+ * Routes are organized by access level: public, protected, and admin.
+ */
 function App() {
     return (
         <Routes>
-            {/* Public routes */}
+            {/* Public Routes - Accessible without authentication */}
+            {/* These routes use AuthLayout (centered, minimal design) */}
             <Route element={<PublicRoute><AuthLayout /></PublicRoute>}>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
@@ -97,7 +123,8 @@ function App() {
                 <Route path="/reset-password" element={<ResetPassword />} />
             </Route>
 
-            {/* Protected routes */}
+            {/* Protected Routes - Requires authentication */}
+            {/* These routes use Layout (sidebar + header) */}
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/today" element={<TodayTasks />} />
@@ -108,14 +135,15 @@ function App() {
                 <Route path="/weekly-tracker" element={<WeeklyTracker />} />
             </Route>
 
-            {/* Admin routes */}
+            {/* Admin Routes - Requires admin role */}
             <Route element={<AdminRoute><Layout /></AdminRoute>}>
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/sessions" element={<AdminSessions />} />
             </Route>
 
-            {/* Default redirect */}
+            {/* Default and Catch-all Routes */}
+            {/* Redirect root path and unknown routes to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
