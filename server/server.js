@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { initializeDatabase } = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { verifyEmailConfig } = require('./services/emailService');
@@ -55,6 +56,15 @@ app.use('/api/weekly', weeklyRoutes);
 
 // Admin routes (user management, sessions, etc.)
 app.use('/api/admin', adminRoutes);
+
+// ==================== Serve Static Files (Production) ====================
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, '../client/dist')));
+    
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+    });
+}
 
 // ==================== Info Endpoints ====================
 
