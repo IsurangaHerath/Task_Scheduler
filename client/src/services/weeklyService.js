@@ -1,16 +1,19 @@
 import api from './api';
 
+// Helper to unwrap API response
+const unwrap = (response) => response.data;
+
 export const weeklyService = {
     getAllTasks() {
-        return api.get('/weekly/tasks');
+        return api.get('/weekly/tasks').then(unwrap);
     },
 
     getTasksWithCompletions(weekStart) {
-        return api.get('/weekly/tasks-with-completions', { params: { weekStart } });
+        return api.get('/weekly/tasks-with-completions', { params: { weekStart } }).then(unwrap);
     },
 
     getWeeklyProgress(weekStart) {
-        return api.get('/weekly/progress', { params: { weekStart } });
+        return api.get('/weekly/progress', { params: { weekStart } }).then(unwrap);
     },
 
     createTask(name) {
