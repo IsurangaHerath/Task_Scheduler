@@ -71,21 +71,21 @@ const Sidebar = ({ isOpen, onClose }) => {
     const sidebarContent = (
         <div className="h-full flex flex-col">
             {/* Application Logo and Brand */}
-            <div className="p-6 border-b border-primary-light/30">
+            <div className="p-6 border-b border-primary-light/30 dark:border-[#30363D] dark:bg-[#0D2818]">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-primary-light to-primary-dark rounded-xl flex items-center justify-center shadow-soft">
                             <CheckSquare className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-xl font-bold text-text-primary">TaskFlow</span>
+                        <span className="text-xl font-bold text-text-primary dark:text-[#C9D1D9]">TaskFlow</span>
                     </div>
                     {/* Close button for mobile sidebar */}
                     <button
                         onClick={onClose}
-                        className="lg:hidden p-2 hover:bg-primary-light/30 rounded-lg transition-colors"
+                        className="lg:hidden p-2 hover:bg-primary-light/30 dark:hover:bg-[#30363D] rounded-lg transition-colors"
                         aria-label="Close sidebar"
                     >
-                        <X className="w-5 h-5 text-text-secondary" />
+                        <X className="w-5 h-5 text-text-secondary dark:text-[#8B949E]" />
                     </button>
                 </div>
             </div>
@@ -98,9 +98,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                 {user?.role === 'admin' && (
                     <>
                         <div className="pt-4 pb-2">
-                            <div className="h-px bg-primary-light/30"></div>
+                            <div className="h-px bg-primary-light/30 dark:bg-[#30363D]"></div>
                         </div>
-                        <p className="px-4 py-2 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                        <p className="px-4 py-2 text-xs font-semibold text-text-muted dark:text-[#8B949E] uppercase tracking-wider">
                             Admin
                         </p>
                         {adminNavigationItems.map(renderNavLink)}
@@ -109,17 +109,17 @@ const Sidebar = ({ isOpen, onClose }) => {
             </nav>
 
             {/* User Profile and Logout Section */}
-            <div className="p-4 border-t border-primary-light/30">
+            <div className="p-4 border-t border-primary-light/30 dark:border-[#30363D] dark:bg-[#0D2818]">
                 {/* User Information Card */}
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-primary-light/20">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-primary-light/20 dark:bg-[#30363D]">
                     <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center text-white font-semibold">
                         {userInitial}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">
+                        <p className="text-sm font-medium text-text-primary dark:text-[#C9D1D9] truncate">
                             {displayName}
                         </p>
-                        <p className="text-xs text-text-muted truncate">
+                        <p className="text-xs text-text-muted dark:text-[#8B949E] truncate">
                             {displayEmail}
                         </p>
                     </div>
@@ -128,7 +128,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 {/* Logout Button */}
                 <button
                     onClick={logout}
-                    className="w-full mt-3 flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary hover:bg-priority-high/10 hover:text-priority-high transition-all duration-200"
+                    className="w-full mt-3 flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary dark:text-[#8B949E] hover:bg-priority-high/10 dark:hover:bg-[#f85149]/10 hover:text-priority-high dark:hover:text-[#f85149] transition-all duration-200"
                 >
                     <LogOut className="w-5 h-5" />
                     <span>Logout</span>
@@ -140,7 +140,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     return (
         <>
             {/* Desktop Sidebar - Fixed position on large screens */}
-            <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 bg-background-sidebar border-r border-primary-light/30">
+            <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 bg-background-sidebar dark:bg-[#0D2818] border-r border-primary-light/30 dark:border-[#30363D]">
                 {sidebarContent}
             </aside>
 
@@ -152,7 +152,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed inset-y-0 left-0 w-64 bg-background-sidebar border-r border-primary-light/30 z-50 lg:hidden"
+                        className="fixed inset-y-0 left-0 w-64 bg-background-sidebar dark:bg-[#0D2818] border-r border-primary-light/30 dark:border-[#30363D] z-50 lg:hidden"
                     >
                         {sidebarContent}
                     </motion.aside>

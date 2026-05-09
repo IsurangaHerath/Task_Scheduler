@@ -335,7 +335,3 @@ html.dark .checkbox-custom {
 html.dark .progress-bar {
   @apply bg-[#30363D];
 }
-
-.progress-bar-fill {
-  @apply h-full bg-gradient-to-r from-primary to-primary-dark rounded-full transition-all duration-500;
-}

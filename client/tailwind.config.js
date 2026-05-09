@@ -10,39 +10,47 @@ export default {
             colors: {
                 // Primary theme colors - Soft Light Green
                 primary: {
-                    light: '#A8E6CF',
-                    DEFAULT: '#A8E6CF',
-                    dark: '#6BCB77',
-                    hover: '#5ABD69',
+                    light: 'rgb(168 230 207 / <alpha-value>)',
+                    DEFAULT: 'rgb(168 230 207 / <alpha-value>)',
+                    dark: 'rgb(107 203 119 / <alpha-value>)',
+                    hover: 'rgb(90 189 105 / <alpha-value>)',
                 },
                 // Border color
                 border: {
-                    DEFAULT: '#E2E8F0',
-                    light: '#F1F5F9',
+                    DEFAULT: 'rgb(226 232 240 / <alpha-value>)',
+                    light: 'rgb(241 245 249 / <alpha-value>)',
                 },
                 // Background colors
                 background: {
-                    main: '#F5FBF7',
-                    card: '#FFFFFF',
-                    sidebar: '#E8F5E9',
+                    main: 'rgb(245 251 247 / <alpha-value>)',
+                    card: 'rgb(255 255 255 / <alpha-value>)',
+                    sidebar: 'rgb(232 245 233 / <alpha-value>)',
                 },
                 // Text colors
                 text: {
-                    primary: '#1B4332',
-                    secondary: '#40916C',
-                    muted: '#74C69D',
+                    primary: 'rgb(27 67 50 / <alpha-value>)',
+                    secondary: 'rgb(64 145 108 / <alpha-value>)',
+                    muted: 'rgb(116 198 157 / <alpha-value>)',
                 },
                 // Priority colors
                 priority: {
-                    low: '#A8E6CF',
-                    medium: '#FFD93D',
-                    high: '#FF6B6B',
+                    low: 'rgb(168 230 207 / <alpha-value>)',
+                    medium: 'rgb(255 217 61 / <alpha-value>)',
+                    high: 'rgb(255 107 107 / <alpha-value>)',
                 },
                 // Status colors
                 status: {
-                    success: '#6BCB77',
-                    warning: '#FFD93D',
-                    error: '#FF6B6B',
+                    success: 'rgb(107 203 119 / <alpha-value>)',
+                    warning: 'rgb(255 217 61 / <alpha-value>)',
+                    error: 'rgb(255 107 107 / <alpha-value>)',
+                },
+            },
+            // Dark mode color overrides
+            backgroundColor: {
+                'dark': {
+                    'background-main': '#0D1117',
+                    'background-card': '#161B22',
+                    'background-sidebar': '#0D2818',
                 },
             },
             fontFamily: {

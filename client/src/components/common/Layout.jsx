@@ -7,11 +7,11 @@ const Layout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-background-main">
+        <div className="min-h-screen bg-background-main dark:bg-[#0D1117]">
             {/* Mobile sidebar backdrop */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    className="fixed inset-0 bg-black/50 dark:bg-black/70 z-40 lg:hidden"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
