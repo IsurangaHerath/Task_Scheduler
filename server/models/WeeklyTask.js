@@ -1,176 +1,171 @@
-const { db } = require('../config/db');
+const { pool } = require('../config/db');
 
 class WeeklyTask {
-    static getWeekStartDate(date = new Date()) {
-        const d = new Date(date);
-        const day = d.getDay();
-        // Monday as start of week: if Sunday (0), go back 6 days, otherwise go to Monday
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        d.setDate(diff);
-        return d.toISOString().split('T')[0];
-    }
+  static getWeekStartDate(date = new Date()) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().split('T')[0];
+  }
 
-    // Convert client day index (Mon=0, Sun=6) to DB day index (Sun=0, Sat=6)
-    static clientDayToDbDay(clientDayIndex) {
-        return (clientDayIndex + 1) % 7;
-    }
+  static clientDayToDbDay(clientDayIndex) {
+    return (clientDayIndex + 1) % 7;
+  }
 
-    // Convert DB day index (Sun=0, Sat=6) to client day index (Mon=0, Sun=6)
-    static dbDayToClientDay(dbDayIndex) {
-        return dbDayIndex === 0 ? 6 : dbDayIndex - 1;
-    }
+  static dbDayToClientDay(dbDayIndex) {
+    return dbDayIndex === 0 ? 6 : dbDayIndex - 1;
+  }
 
-    static create(taskData) {
-        const { userId, name } = taskData;
-        
-        const stmt = db.prepare(`
-            INSERT INTO weekly_tasks (userId, name)
-            VALUES (?, ?)
-        `);
-        
-        const result = stmt.run(userId, name);
-        return this.findById(result.lastInsertRowid);
-    }
+  static async create(taskData) {
+    const { userId, name } = taskData;
+    
+    const result = await pool.query(
+      'INSERT INTO weekly_tasks ("userId", name) VALUES ($1, $2) RETURNING *',
+      [userId, name]
+    );
+    
+    return result.rows[0];
+  }
 
-    static findById(id) {
-        const stmt = db.prepare('SELECT * FROM weekly_tasks WHERE id = ?');
-        return stmt.get(id);
-    }
+  static async findById(id) {
+    const result = await pool.query('SELECT * FROM weekly_tasks WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  }
 
-    static findAll(userId) {
-        const stmt = db.prepare('SELECT * FROM weekly_tasks WHERE userId = ? ORDER BY createdAt ASC');
-        return stmt.all(userId);
-    }
+  static async findAll(userId) {
+    const result = await pool.query('SELECT * FROM weekly_tasks WHERE "userId" = $1 ORDER BY "createdAt" ASC', [userId]);
+    return result.rows;
+  }
 
-    static update(id, updateData) {
-        const { name } = updateData;
-        
-        if (!name) return this.findById(id);
-        
-        const stmt = db.prepare('UPDATE weekly_tasks SET name = ? WHERE id = ?');
-        stmt.run(name, id);
-        return this.findById(id);
-    }
+  static async update(id, updateData) {
+    const { name } = updateData;
+    
+    if (!name) return this.findById(id);
+    
+    const result = await pool.query(
+      'UPDATE weekly_tasks SET name = $1 WHERE id = $2 RETURNING *',
+      [name, id]
+    );
+    
+    return result.rows[0];
+  }
 
-    static delete(id) {
-        const stmt = db.prepare('DELETE FROM weekly_tasks WHERE id = ?');
-        const result = stmt.run(id);
-        return result.changes > 0;
-    }
+  static async delete(id) {
+    const result = await pool.query('DELETE FROM weekly_tasks WHERE id = $1', [id]);
+    return result.rowCount > 0;
+  }
 
-    static getCompletionsForWeek(userId, weekStartDate = null) {
-        const startDate = weekStartDate || this.getWeekStartDate();
-        
-        const tasks = this.findAll(userId);
-        
-        const stmt = db.prepare(`
-            SELECT * FROM weekly_task_completions 
-            WHERE weeklyTaskId IN (SELECT id FROM weekly_tasks WHERE userId = ?)
-            AND weekStartDate = ?
-        `);
-        
-        const completions = stmt.all(userId, startDate);
-        
-        const completionMap = {};
-        for (const c of completions) {
-            if (!completionMap[c.weeklyTaskId]) {
-                completionMap[c.weeklyTaskId] = {};
-            }
-            // Convert DB day index (Sun=0) to client day index (Mon=0)
-            const clientDayIndex = this.dbDayToClientDay(c.dayOfWeek);
-            completionMap[c.weeklyTaskId][clientDayIndex] = {
-                completed: !!c.completed,
-                completedAt: c.completedAt
-            };
-        }
-        
-        return tasks.map(task => ({
-            ...task,
-            completions: completionMap[task.id] || {}
-        }));
+  static async getCompletionsForWeek(userId, weekStartDate = null) {
+    const startDate = weekStartDate || this.getWeekStartDate();
+    
+    const tasks = await this.findAll(userId);
+    
+    const result = await pool.query(
+      `SELECT * FROM weekly_task_completions 
+       WHERE "weeklyTaskId" IN (SELECT id FROM weekly_tasks WHERE "userId" = $1)
+       AND "weekStartDate" = $2`,
+      [userId, startDate]
+    );
+    
+    const completions = result.rows;
+    
+    const completionMap = {};
+    for (const c of completions) {
+      if (!completionMap[c.weeklyTaskId]) {
+        completionMap[c.weeklyTaskId] = {};
+      }
+      const clientDayIndex = this.dbDayToClientDay(c.dayOfWeek);
+      completionMap[c.weeklyTaskId][clientDayIndex] = {
+        completed: !!c.completed,
+        completedAt: c.completedAt
+      };
     }
+    
+    return tasks.map(task => ({
+      ...task,
+      completions: completionMap[task.id] || {}
+    }));
+  }
 
-    static toggleCompletion(weeklyTaskId, dayOfWeek, weekStartDate = null) {
-        const startDate = weekStartDate || this.getWeekStartDate();
-        // Convert client day index (Mon=0) to DB day index (Sun=0)
-        const dbDayIndex = this.clientDayToDbDay(dayOfWeek);
-        
-        const existingStmt = db.prepare(`
-            SELECT * FROM weekly_task_completions 
-            WHERE weeklyTaskId = ? AND dayOfWeek = ? AND weekStartDate = ?
-        `);
-        
-        const existing = existingStmt.get(weeklyTaskId, dbDayIndex, startDate);
-        
-        if (existing) {
-            const newCompleted = existing.completed ? 0 : 1;
-            const completedAt = newCompleted ? new Date().toISOString() : null;
-            
-            const updateStmt = db.prepare(`
-                UPDATE weekly_task_completions 
-                SET completed = ?, completedAt = ? 
-                WHERE weeklyTaskId = ? AND dayOfWeek = ? AND weekStartDate = ?
-            `);
-            
-            updateStmt.run(newCompleted, completedAt, weeklyTaskId, dbDayIndex, startDate);
-            
-            return {
-                completed: !!newCompleted,
-                completedAt
-            };
-        } else {
-            const insertStmt = db.prepare(`
-                INSERT INTO weekly_task_completions (weeklyTaskId, dayOfWeek, weekStartDate, completed, completedAt)
-                VALUES (?, ?, ?, 1, datetime('now'))
-            `);
-            
-            insertStmt.run(weeklyTaskId, dbDayIndex, startDate);
-            
-            return {
-                completed: true,
-                completedAt: new Date().toISOString()
-            };
-        }
+  static async toggleCompletion(weeklyTaskId, dayOfWeek, weekStartDate = null) {
+    const startDate = weekStartDate || this.getWeekStartDate();
+    const dbDayIndex = this.clientDayToDbDay(dayOfWeek);
+    
+    const result = await pool.query(
+      `SELECT * FROM weekly_task_completions 
+       WHERE "weeklyTaskId" = $1 AND "dayOfWeek" = $2 AND "weekStartDate" = $3`,
+      [weeklyTaskId, dbDayIndex, startDate]
+    );
+    
+    const existing = result.rows[0];
+    
+    if (existing) {
+      const newCompleted = existing.completed ? 0 : 1;
+      const completedAt = newCompleted ? new Date().toISOString() : null;
+      
+      await pool.query(
+        `UPDATE weekly_task_completions 
+         SET completed = $1, "completedAt" = $2 
+         WHERE "weeklyTaskId" = $3 AND "dayOfWeek" = $4 AND "weekStartDate" = $5`,
+        [newCompleted, completedAt, weeklyTaskId, dbDayIndex, startDate]
+      );
+      
+      return {
+        completed: !!newCompleted,
+        completedAt
+      };
+    } else {
+      await pool.query(
+        `INSERT INTO weekly_task_completions ("weeklyTaskId", "dayOfWeek", "weekStartDate", completed, "completedAt")
+         VALUES ($1, $2, $3, 1, $4)`,
+        [weeklyTaskId, dbDayIndex, startDate, new Date().toISOString()]
+      );
+      
+      return {
+        completed: true,
+        completedAt: new Date().toISOString()
+      };
     }
+  }
 
-    static getWeeklyProgress(userId, weekStartDate = null) {
-        const startDate = weekStartDate || this.getWeekStartDate();
-        
-        const tasks = this.findAll(userId);
-        const totalTasks = tasks.length;
-        const totalPossible = totalTasks * 7;
-        
-        if (totalTasks === 0) {
-            return {
-                completed: 0,
-                missed: 0,
-                total: 0,
-                completionRate: 0
-            };
-        }
-        
-        const stmt = db.prepare(`
-            SELECT 
-                SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN completed = 0 THEN 1 ELSE 0 END) as missed
-            FROM weekly_task_completions 
-            WHERE weeklyTaskId IN (SELECT id FROM weekly_tasks WHERE userId = ?)
-            AND weekStartDate = ?
-        `);
-        
-        const result = stmt.get(userId, startDate);
-        
-        const completed = result.completed || 0;
-        const missed = result.missed || 0;
-        const total = completed + missed;
-        
-        return {
-            completed,
-            missed,
-            total,
-            completionRate: total > 0 ? Math.round((completed / total) * 100) : 0
-        };
+  static async getWeeklyProgress(userId, weekStartDate = null) {
+    const startDate = weekStartDate || this.getWeekStartDate();
+    
+    const tasks = await this.findAll(userId);
+    const totalTasks = tasks.length;
+    const totalPossible = totalTasks * 7;
+    
+    if (totalTasks === 0) {
+      return {
+        completed: 0,
+        missed: 0,
+        total: 0,
+        completionRate: 0
+      };
     }
+    
+    const result = await pool.query(
+      `SELECT 
+         SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed,
+         SUM(CASE WHEN completed = 0 THEN 1 ELSE 0 END) as missed
+       FROM weekly_task_completions 
+       WHERE "weeklyTaskId" IN (SELECT id FROM weekly_tasks WHERE "userId" = $1)
+       AND "weekStartDate" = $2`,
+      [userId, startDate]
+    );
+    
+    const completed = parseInt(result.rows[0].completed) || 0;
+    const missed = parseInt(result.rows[0].missed) || 0;
+    const total = completed + missed;
+    
+    return {
+      completed,
+      missed,
+      total,
+      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0
+    };
+  }
 }
 
 module.exports = WeeklyTask;

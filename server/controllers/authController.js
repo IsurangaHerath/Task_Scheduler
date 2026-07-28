@@ -4,7 +4,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { sendPasswordResetEmail } = require('../services/emailService');
 const sessionService = require('../services/sessionService');
 const crypto = require('crypto');
-const { db } = require('../config/db');
+const { pool } = require('../config/db');
 
 /**
  * Authentication Controller
@@ -161,15 +161,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     // Delete any existing reset tokens for this user
-    const deleteStmt = db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?');
-    deleteStmt.run(user.id);
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
 
     // Insert new reset token
-    const insertStmt = db.prepare(`
-        INSERT INTO password_reset_tokens (user_id, token, expires_at)
-        VALUES (?, ?, ?)
-    `);
-    insertStmt.run(user.id, hashedToken, expiresAt);
+    await pool.query(
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [user.id, hashedToken, expiresAt]
+    );
 
     // Get the frontend URL from environment or use default
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -230,38 +228,37 @@ const resetPassword = asyncHandler(async (req, res) => {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     // Find valid (unused and not expired) reset token
-    const stmt = db.prepare(`
-        SELECT * FROM password_reset_tokens 
-        WHERE token = ? AND used = 0 AND expires_at > datetime('now')
-    `);
-    const resetTokenRecord = stmt.get(hashedToken);
+    const { rows: tokenResults } = await pool.query(
+      `SELECT * FROM password_reset_tokens 
+       WHERE token = $1 AND used = 0 AND expires_at > NOW()`,
+      [hashedToken]
+    );
+    const resetTokenRecord = tokenResults[0];
 
     if (!resetTokenRecord) {
-        return res.status(400).json({
-            success: false,
-            message: 'Invalid or expired reset token'
-        });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
     }
 
     // Find the user associated with the token
     const user = await User.findById(resetTokenRecord.user_id);
     if (!user) {
-        return res.status(400).json({
-            success: false,
-            message: 'User not found'
-        });
+      return res.status(400).json({
+        success: false,
+        message: 'User not found'
+      });
     }
 
     // Update the user's password (will be hashed in the model)
     await User.updatePassword(user.id, password);
 
     // Mark the reset token as used
-    const updateStmt = db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE id = ?');
-    updateStmt.run(resetTokenRecord.id);
+    await pool.query('UPDATE password_reset_tokens SET used = 1 WHERE id = $1', [resetTokenRecord.id]);
 
     // Invalidate all other reset tokens for this user (security)
-    const deleteStmt = db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND id != ?');
-    deleteStmt.run(user.id, resetTokenRecord.id);
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND id != $2', [user.id, resetTokenRecord.id]);
 
     res.json({
         success: true,
@@ -470,8 +467,10 @@ const deleteAccount = asyncHandler(async (req, res) => {
 
     // Delete user's tasks first (maintain referential integrity)
     const Task = require('../models/Task');
-    const userTasks = Task.findAll(req.user.id);
-    userTasks.forEach(task => Task.delete(task.id));
+    const userTasks = await Task.findAll(req.user.id);
+    for (const task of userTasks) {
+      await Task.delete(task.id);
+    }
 
     // Delete user account
     await User.delete(req.user.id);

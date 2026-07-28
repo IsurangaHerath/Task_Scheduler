@@ -1,34 +1,9 @@
 const Task = require('../models/Task');
 const { asyncHandler } = require('../middleware/errorHandler');
 
-/**
- * Task Controller
- * 
- * Handles all task-related API endpoints including CRUD operations,
- * task filtering, statistics, and bulk operations.
- * All routes require authentication (user must be logged in).
- */
-
-// ==================== READ Operations ====================
-
-/**
- * Get all tasks for the authenticated user
- * 
- * Supports filtering by status, priority, and category.
- * Supports search by task title.
- * 
- * @route GET /api/tasks
- * @access Private
- * @query {string} status - Filter by 'pending' or 'completed'
- * @query {string} priority - Filter by 'low', 'medium', or 'high'
- * @query {string} category - Filter by category name
- * @query {string} search - Search tasks by title
- * @query {number} limit - Maximum number of tasks to return (default: 100)
- */
 const getTasks = asyncHandler(async (req, res) => {
     const { status, priority, category, search, limit = 100 } = req.query;
 
-    // Build query filter options
     const filterOptions = { limit: parseInt(limit) };
     if (status && ['pending', 'completed'].includes(status)) {
         filterOptions.status = status;
@@ -40,10 +15,8 @@ const getTasks = asyncHandler(async (req, res) => {
         filterOptions.category = category;
     }
 
-    // Fetch tasks from database
-    let tasks = Task.findAll(req.user.id, filterOptions);
+    let tasks = await Task.findAll(req.user.id, filterOptions);
 
-    // Apply client-side search filtering
     if (search) {
         const searchTerm = search.toLowerCase();
         tasks = tasks.filter(task => task.title.toLowerCase().includes(searchTerm));
@@ -56,17 +29,9 @@ const getTasks = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Get a single task by its ID
- * 
- * @route GET /api/tasks/:id
- * @access Private
- * @param {string} req.params.id - Task ID
- */
 const getTask = asyncHandler(async (req, res) => {
-    const task = Task.findById(req.params.id);
+    const task = await Task.findById(req.params.id);
 
-    // Verify task exists and belongs to the authenticated user
     if (!task || task.userId !== req.user.id) {
         return res.status(404).json({
             success: false,
@@ -80,14 +45,8 @@ const getTask = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Get tasks due today
- * 
- * @route GET /api/tasks/today
- * @access Private
- */
 const getTodayTasks = asyncHandler(async (req, res) => {
-    const tasks = Task.getTodayTasks(req.user.id);
+    const tasks = await Task.getTodayTasks(req.user.id);
 
     res.json({
         success: true,
@@ -96,19 +55,11 @@ const getTodayTasks = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Get upcoming tasks (future due dates)
- * 
- * @route GET /api/tasks/upcoming
- * @access Private
- * @query {number} days - Number of days to look ahead (default: 7)
- */
 const getUpcomingTasks = asyncHandler(async (req, res) => {
     const { days = 7 } = req.query;
 
-    const tasks = Task.getUpcomingTasks(req.user.id);
+    const tasks = await Task.getUpcomingTasks(req.user.id);
     
-    // Apply day filter if specified
     let filteredTasks = tasks;
     if (days) {
         const today = new Date();
@@ -124,17 +75,10 @@ const getUpcomingTasks = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Get completed tasks
- * 
- * @route GET /api/tasks/completed
- * @access Private
- * @query {number} limit - Maximum number of tasks to return (default: 50)
- */
 const getCompletedTasks = asyncHandler(async (req, res) => {
     const { limit = 50 } = req.query;
 
-    const tasks = Task.getCompletedTasks(req.user.id, parseInt(limit));
+    const tasks = await Task.getCompletedTasks(req.user.id, parseInt(limit));
 
     res.json({
         success: true,
@@ -143,24 +87,15 @@ const getCompletedTasks = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Get task statistics and weekly data for charts
- * 
- * @route GET /api/tasks/stats
- * @access Private
- */
 const getStats = asyncHandler(async (req, res) => {
-    const stats = Task.getStats(req.user.id);
+    const stats = await Task.getStats(req.user.id);
 
-    // Generate weekly data for the past 7 days
     const today = new Date();
     const weekData = [];
 
-    // Get completed and all tasks for the user
-    const completedTasks = Task.getCompletedTasks(req.user.id, 1000);
-    const allTasks = Task.findAll(req.user.id);
+    const completedTasks = await Task.getCompletedTasks(req.user.id, 1000);
+    const allTasks = await Task.findAll(req.user.id);
 
-    // Calculate daily statistics for the past week
     for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
@@ -171,14 +106,12 @@ const getStats = asyncHandler(async (req, res) => {
         const dayEnd = new Date(dateString);
         dayEnd.setHours(23, 59, 59, 999);
 
-        // Count completed tasks for this day
         const completed = completedTasks.filter(task => {
             if (!task.completedAt) return false;
             const completedDate = new Date(task.completedAt).toISOString().split('T')[0];
             return completedDate === dateString;
         }).length;
 
-        // Count total tasks due on this day
         const total = allTasks.filter(task => {
             const dueDate = new Date(task.dueDate).toISOString().split('T')[0];
             return dueDate === dateString;
@@ -198,14 +131,6 @@ const getStats = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Get tasks within a date range for calendar view
- * 
- * @route GET /api/tasks/calendar
- * @access Private
- * @query {string} start - Start date (ISO format)
- * @query {string} end - End date (ISO format)
- */
 const getCalendarTasks = asyncHandler(async (req, res) => {
     const { start, end } = req.query;
 
@@ -216,7 +141,7 @@ const getCalendarTasks = asyncHandler(async (req, res) => {
         });
     }
 
-    const tasks = Task.getCalendarTasks(req.user.id, start, end);
+    const tasks = await Task.getCalendarTasks(req.user.id, start, end);
 
     res.json({
         success: true,
@@ -225,14 +150,6 @@ const getCalendarTasks = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Get tasks by date range (alias for getCalendarTasks)
- * 
- * @route GET /api/tasks/range
- * @access Private
- * @query {string} startDate - Start date (ISO format)
- * @query {string} endDate - End date (ISO format)
- */
 const getTasksByRange = asyncHandler(async (req, res) => {
     const { startDate, endDate } = req.query;
 
@@ -243,7 +160,7 @@ const getTasksByRange = asyncHandler(async (req, res) => {
         });
     }
 
-    const tasks = Task.getCalendarTasks(req.user.id, startDate, endDate);
+    const tasks = await Task.getCalendarTasks(req.user.id, startDate, endDate);
 
     res.json({
         success: true,
@@ -252,29 +169,13 @@ const getTasksByRange = asyncHandler(async (req, res) => {
     });
 });
 
-// ==================== CREATE Operations ====================
-
-/**
- * Create a new task
- * 
- * @route POST /api/tasks
- * @access Private
- * @body {string} title - Task title (required)
- * @body {string} description - Task description (optional)
- * @body {string} dueDate - Due date (required)
- * @body {string} time - Due time (default: '09:00')
- * @body {string} priority - Priority level: 'low', 'medium', 'high' (default: 'medium')
- * @body {string} category - Category name (default: 'general')
- * @body {boolean} reminderEnabled - Enable reminder (default: true)
- */
 const createTask = asyncHandler(async (req, res) => {
     const { title, description, dueDate, time, priority, category, reminderEnabled } = req.body;
 
-    // Get the highest order number to append new task at the end
-    const allTasks = Task.findAll(req.user.id);
+    const allTasks = await Task.findAll(req.user.id);
     const order = allTasks.length > 0 ? Math.max(...allTasks.map(t => t.order || 0)) + 1 : 0;
 
-    const newTask = Task.create({
+    const newTask = await Task.create({
         userId: req.user.id,
         title,
         description: description || '',
@@ -293,28 +194,10 @@ const createTask = asyncHandler(async (req, res) => {
     });
 });
 
-// ==================== UPDATE Operations ====================
-
-/**
- * Update an existing task
- * 
- * @route PUT /api/tasks/:id
- * @access Private
- * @param {string} req.params.id - Task ID
- * @body {string} title - Task title
- * @body {string} description - Task description
- * @body {string} dueDate - Due date
- * @body {string} time - Due time
- * @body {string} priority - Priority level
- * @body {string} status - Task status: 'pending' or 'completed'
- * @body {string} category - Category name
- * @body {boolean} reminderEnabled - Enable reminder
- */
 const updateTask = asyncHandler(async (req, res) => {
     const { title, description, dueDate, time, priority, status, category, reminderEnabled } = req.body;
 
-    // Verify task exists and belongs to the authenticated user
-    let task = Task.findById(req.params.id);
+    let task = await Task.findById(req.params.id);
 
     if (!task || task.userId !== req.user.id) {
         return res.status(404).json({
@@ -323,7 +206,6 @@ const updateTask = asyncHandler(async (req, res) => {
         });
     }
 
-    // Build update payload with only provided fields
     const updateData = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
@@ -332,17 +214,15 @@ const updateTask = asyncHandler(async (req, res) => {
     if (priority !== undefined) updateData.priority = priority;
     if (status !== undefined) {
         updateData.status = status;
-        // Set completion timestamp when marking as completed
         updateData.completedAt = status === 'completed' ? new Date().toISOString() : null;
     }
     if (category !== undefined) updateData.category = category;
     if (reminderEnabled !== undefined) {
         updateData.reminderEnabled = reminderEnabled;
-        // Reset reminder sent flag when re-enabling
         if (reminderEnabled) updateData.reminderSent = false;
     }
 
-    task = Task.update(req.params.id, updateData);
+    task = await Task.update(req.params.id, updateData);
 
     res.json({
         success: true,
@@ -351,15 +231,8 @@ const updateTask = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Toggle task completion status
- * 
- * @route PATCH /api/tasks/:id/complete
- * @access Private
- * @param {string} req.params.id - Task ID
- */
 const toggleComplete = asyncHandler(async (req, res) => {
-    const task = Task.findById(req.params.id);
+    const task = await Task.findById(req.params.id);
 
     if (!task || task.userId !== req.user.id) {
         return res.status(404).json({
@@ -368,8 +241,7 @@ const toggleComplete = asyncHandler(async (req, res) => {
         });
     }
 
-    // Toggle between pending and completed
-    const updatedTask = Task.toggleComplete(req.params.id);
+    const updatedTask = await Task.toggleComplete(req.params.id);
 
     res.json({
         success: true,
@@ -378,13 +250,6 @@ const toggleComplete = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Reorder tasks (for drag and drop functionality)
- * 
- * @route PUT /api/tasks/reorder
- * @access Private
- * @body {Array} taskOrders - Array of { id, order } objects
- */
 const reorderTasks = asyncHandler(async (req, res) => {
     const { taskOrders } = req.body;
 
@@ -395,9 +260,8 @@ const reorderTasks = asyncHandler(async (req, res) => {
         });
     }
 
-    // Update order for each task
     for (const { id, order } of taskOrders) {
-        Task.update(id, { order });
+        await Task.update(id, { order });
     }
 
     res.json({
@@ -406,14 +270,6 @@ const reorderTasks = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Bulk update multiple tasks
- * 
- * @route PUT /api/tasks/bulk
- * @access Private
- * @body {Array} taskIds - Array of task IDs to update
- * @body {Object} updates - Fields to update on each task
- */
 const bulkUpdate = asyncHandler(async (req, res) => {
     const { taskIds, updates } = req.body;
 
@@ -426,9 +282,9 @@ const bulkUpdate = asyncHandler(async (req, res) => {
 
     let modifiedCount = 0;
     for (const id of taskIds) {
-        const task = Task.findById(id);
+        const task = await Task.findById(id);
         if (task && task.userId === req.user.id) {
-            Task.update(id, updates);
+            await Task.update(id, updates);
             modifiedCount++;
         }
     }
@@ -440,17 +296,8 @@ const bulkUpdate = asyncHandler(async (req, res) => {
     });
 });
 
-// ==================== DELETE Operations ====================
-
-/**
- * Delete a task
- * 
- * @route DELETE /api/tasks/:id
- * @access Private
- * @param {string} req.params.id - Task ID
- */
 const deleteTask = asyncHandler(async (req, res) => {
-    const task = Task.findById(req.params.id);
+    const task = await Task.findById(req.params.id);
 
     if (!task || task.userId !== req.user.id) {
         return res.status(404).json({
@@ -459,7 +306,7 @@ const deleteTask = asyncHandler(async (req, res) => {
         });
     }
 
-    Task.delete(req.params.id);
+    await Task.delete(req.params.id);
 
     res.json({
         success: true,
@@ -467,13 +314,6 @@ const deleteTask = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Bulk delete multiple tasks
- * 
- * @route DELETE /api/tasks/bulk
- * @access Private
- * @body {Array} taskIds - Array of task IDs to delete
- */
 const bulkDelete = asyncHandler(async (req, res) => {
     const { taskIds } = req.body;
 
@@ -486,9 +326,9 @@ const bulkDelete = asyncHandler(async (req, res) => {
 
     let deletedCount = 0;
     for (const id of taskIds) {
-        const task = Task.findById(id);
+        const task = await Task.findById(id);
         if (task && task.userId === req.user.id) {
-            Task.delete(id);
+            await Task.delete(id);
             deletedCount++;
         }
     }
@@ -500,7 +340,6 @@ const bulkDelete = asyncHandler(async (req, res) => {
     });
 });
 
-// Export all controller functions
 module.exports = {
     getTasks,
     getTask,

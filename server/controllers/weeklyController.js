@@ -1,10 +1,10 @@
 const WeeklyTask = require('../models/WeeklyTask');
 
 const weeklyController = {
-    getAllTasks(req, res) {
+    async getAllTasks(req, res) {
         try {
             const userId = req.user.id;
-            const tasks = WeeklyTask.findAll(userId);
+            const tasks = await WeeklyTask.findAll(userId);
             res.json({
                 success: true,
                 data: { tasks }
@@ -15,11 +15,11 @@ const weeklyController = {
         }
     },
 
-    getTasksWithCompletions(req, res) {
+    async getTasksWithCompletions(req, res) {
         try {
             const userId = req.user.id;
             const { weekStart } = req.query;
-            const tasks = WeeklyTask.getCompletionsForWeek(userId, weekStart);
+            const tasks = await WeeklyTask.getCompletionsForWeek(userId, weekStart);
             res.json({
                 success: true,
                 data: tasks
@@ -30,7 +30,7 @@ const weeklyController = {
         }
     },
 
-    createTask(req, res) {
+    async createTask(req, res) {
         try {
             const userId = req.user.id;
             const { name } = req.body;
@@ -39,7 +39,7 @@ const weeklyController = {
                 return res.status(400).json({ success: false, message: 'Task name is required' });
             }
             
-            const task = WeeklyTask.create({
+            const task = await WeeklyTask.create({
                 userId,
                 name: name.trim()
             });
@@ -54,13 +54,12 @@ const weeklyController = {
         }
     },
 
-    updateTask(req, res) {
+    async updateTask(req, res) {
         try {
             const { id } = req.params;
             const { name } = req.body;
             
-            // Check if task exists and belongs to user
-            const task = WeeklyTask.findById(id);
+            const task = await WeeklyTask.findById(id);
             if (!task || task.userId !== req.user.id) {
                 return res.status(404).json({ success: false, message: 'Task not found' });
             }
@@ -69,7 +68,7 @@ const weeklyController = {
                 return res.status(400).json({ success: false, message: 'Task name is required' });
             }
             
-            const updatedTask = WeeklyTask.update(id, { name: name.trim() });
+            const updatedTask = await WeeklyTask.update(id, { name: name.trim() });
             
             res.json({
                 success: true,
@@ -81,17 +80,16 @@ const weeklyController = {
         }
     },
 
-    deleteTask(req, res) {
+    async deleteTask(req, res) {
         try {
             const { id } = req.params;
             
-            // Check if task exists and belongs to user
-            const task = WeeklyTask.findById(id);
+            const task = await WeeklyTask.findById(id);
             if (!task || task.userId !== req.user.id) {
                 return res.status(404).json({ success: false, message: 'Task not found' });
             }
             
-            const deleted = WeeklyTask.delete(id);
+            await WeeklyTask.delete(id);
             
             res.json({
                 success: true,
@@ -103,13 +101,12 @@ const weeklyController = {
         }
     },
 
-    toggleCompletion(req, res) {
+    async toggleCompletion(req, res) {
         try {
             const { id } = req.params;
             const { dayOfWeek, weekStart } = req.body;
             
-            // Check if task exists and belongs to user
-            const task = WeeklyTask.findById(id);
+            const task = await WeeklyTask.findById(id);
             if (!task || task.userId !== req.user.id) {
                 return res.status(404).json({ success: false, message: 'Task not found' });
             }
@@ -118,7 +115,7 @@ const weeklyController = {
                 return res.status(400).json({ success: false, message: 'Valid day of week (0-6) is required' });
             }
             
-            const result = WeeklyTask.toggleCompletion(id, dayOfWeek, weekStart);
+            const result = await WeeklyTask.toggleCompletion(id, dayOfWeek, weekStart);
             res.json({
                 success: true,
                 data: result
@@ -129,11 +126,11 @@ const weeklyController = {
         }
     },
 
-    getWeeklyProgress(req, res) {
+    async getWeeklyProgress(req, res) {
         try {
             const userId = req.user.id;
             const { weekStart } = req.query;
-            const progress = WeeklyTask.getWeeklyProgress(userId, weekStart);
+            const progress = await WeeklyTask.getWeeklyProgress(userId, weekStart);
             res.json({
                 success: true,
                 data: progress
