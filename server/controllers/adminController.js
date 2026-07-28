@@ -219,58 +219,66 @@ const forceLogoutUser = asyncHandler(async (req, res) => {
 });
 
 const getActivityOverview = asyncHandler(async (req, res) => {
-  const today = new Date();
-  const weekAgo = new Date(today);
-  weekAgo.setDate(today.getDate() - 7);
-  
-  const todayStr = today.toISOString().split('T')[0];
-  const weekAgoStr = weekAgo.toISOString().split('T')[0];
-  
-  const results = await Promise.all([
-    pool.query(`SELECT COUNT(*) as count FROM tasks WHERE "createdAt" >= $1::date`, [weekAgoStr]),
-    pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed' AND "completedAt" >= $1::date`, [weekAgoStr])
-  ]);
-  
-  const tasksCreatedLastWeek = parseInt(results[0].rows[0].count);
-  const tasksCompletedLastWeek = parseInt(results[1].rows[0].count);
-  
-  const dailyActivity = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
+  try {
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 7);
     
-    const dayResults = await Promise.all([
-      pool.query('SELECT COUNT(*) as count FROM tasks WHERE "createdAt"::date = $1::date', [dateStr]),
-      pool.query('SELECT COUNT(*) as count FROM tasks WHERE status = \'completed\' AND "completedAt"::date = $1::date', [dateStr]),
-      pool.query('SELECT COUNT(*) as count FROM users WHERE "createdAt"::date = $1::date', [dateStr])
+    const todayStr = today.toISOString().split('T')[0];
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+    
+    const results = await Promise.all([
+      pool.query(`SELECT COUNT(*) as count FROM tasks WHERE "createdAt"::date >= $1`, [weekAgoStr]),
+      pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed' AND "completedAt"::date >= $1`, [weekAgoStr])
     ]);
     
-    dailyActivity.push({
-      date: dateStr,
-      tasksCreated: parseInt(dayResults[0].rows[0].count),
-      tasksCompleted: parseInt(dayResults[1].rows[0].count),
-      newUsers: parseInt(dayResults[2].rows[0].count)
+    const tasksCreatedLastWeek = parseInt(results[0].rows[0].count) || 0;
+    const tasksCompletedLastWeek = parseInt(results[1].rows[0].count) || 0;
+    
+    const dailyActivity = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayResults = await Promise.all([
+        pool.query('SELECT COUNT(*) as count FROM tasks WHERE "createdAt"::date = $1', [dateStr]),
+        pool.query('SELECT COUNT(*) as count FROM tasks WHERE status = \'completed\' AND "completedAt"::date = $1', [dateStr]),
+        pool.query('SELECT COUNT(*) as count FROM users WHERE "createdAt"::date = $1', [dateStr])
+      ]);
+      
+      dailyActivity.push({
+        date: dateStr,
+        tasksCreated: parseInt(dayResults[0].rows[0].count) || 0,
+        tasksCompleted: parseInt(dayResults[1].rows[0].count) || 0,
+        newUsers: parseInt(dayResults[2].rows[0].count) || 0
+      });
+    }
+    
+    const newUsersResult = await pool.query(
+      `SELECT COUNT(*) as count FROM users WHERE "createdAt"::date >= $1`,
+      [weekAgoStr]
+    );
+    const newUsersLastWeek = parseInt(newUsersResult.rows[0].count) || 0;
+    
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          tasksCreatedLastWeek,
+          tasksCompletedLastWeek,
+          newUsersLastWeek
+        },
+        dailyActivity
+      }
+    });
+  } catch (error) {
+    console.error('Activity overview error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch activity data'
     });
   }
-  
-  const newUsersResult = await pool.query(
-    `SELECT COUNT(*) as count FROM users WHERE "createdAt" >= $1::date`,
-    [weekAgoStr]
-  );
-  const newUsersLastWeek = parseInt(newUsersResult.rows[0].count);
-  
-  res.json({
-    success: true,
-    data: {
-      summary: {
-        tasksCreatedLastWeek,
-        tasksCompletedLastWeek,
-        newUsersLastWeek
-      },
-      dailyActivity
-    }
-  });
 });
 
 module.exports = {

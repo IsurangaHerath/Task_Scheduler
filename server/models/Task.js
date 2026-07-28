@@ -249,6 +249,7 @@ class Task {
 
   static _parseTask(task) {
     const parsed = { ...task };
+    parsed._id = parsed.id;
     parsed.reminderEnabled = !!parsed.reminderEnabled;
     parsed.reminderSent = !!parsed.reminderSent;
     parsed.order = parseInt(parsed.order) || 0;

@@ -25,29 +25,36 @@ class WeeklyTask {
       [userId, name]
     );
     
+    result.rows[0]._id = result.rows[0].id;
     return result.rows[0];
   }
 
   static async findById(id) {
     const result = await pool.query('SELECT * FROM weekly_tasks WHERE id = $1', [id]);
-    return result.rows[0] || null;
+    if (!result.rows[0]) return null;
+    result.rows[0]._id = result.rows[0].id;
+    return result.rows[0];
   }
 
   static async findAll(userId) {
     const result = await pool.query('SELECT * FROM weekly_tasks WHERE "userId" = $1 ORDER BY "createdAt" ASC', [userId]);
-    return result.rows;
+    return result.rows.map(t => { t._id = t.id; return t; });
   }
 
   static async update(id, updateData) {
     const { name } = updateData;
     
-    if (!name) return this.findById(id);
+    if (!name) {
+      const task = await this.findById(id);
+      return task;
+    }
     
     const result = await pool.query(
       'UPDATE weekly_tasks SET name = $1 WHERE id = $2 RETURNING *',
       [name, id]
     );
     
+    result.rows[0]._id = result.rows[0].id;
     return result.rows[0];
   }
 
@@ -84,6 +91,7 @@ class WeeklyTask {
     
     return tasks.map(task => ({
       ...task,
+      _id: task.id,
       completions: completionMap[task.id] || {}
     }));
   }
