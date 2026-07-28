@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { initializeDatabase } = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { verifyEmailConfig } = require('./services/emailService');
@@ -40,14 +41,6 @@ const startServer = async () => {
   app.use('/api/tasks', taskRoutes);
   app.use('/api/weekly', weeklyRoutes);
   app.use('/api/admin', adminRoutes);
-
-  if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, '../client/dist')));
-    
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-    });
-  }
 
   app.get('/api/health', (req, res) => {
     res.json({
@@ -89,6 +82,19 @@ const startServer = async () => {
       }
     });
   });
+
+  if (process.env.NODE_ENV === 'production') {
+    const clientDistPath = path.join(__dirname, '../client/dist');
+    if (fs.existsSync(clientDistPath)) {
+      app.use(express.static(clientDistPath));
+      
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+      });
+    } else {
+      console.log('⚠️ Client dist not found at', clientDistPath, '- static serving disabled');
+    }
+  }
 
   app.use(notFound);
   app.use(errorHandler);

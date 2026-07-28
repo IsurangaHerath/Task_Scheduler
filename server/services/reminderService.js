@@ -43,12 +43,12 @@ const checkDueTasks = async () => {
         // Calculate reminder window (tasks due in the next 15 minutes by default)
         const reminderWindowMinutes = 15;
 
-        // Get all tasks from SQLite
-        const allTasks = Task.getTasksNeedingReminders();
+        // Get all tasks needing reminders
+        const allTasks = await Task.getTasksNeedingReminders();
 
         for (const task of allTasks) {
             // Get user for this task
-            const user = User.findById(task.userId);
+            const user = await User.findById(task.userId);
             
             if (!user) continue;
 
@@ -93,7 +93,7 @@ const sendReminder = async (task, user) => {
         }
 
         // Mark reminder as sent
-        Task.markReminderSent(task.id);
+        await Task.update(task.id, { reminderSent: true });
 
         console.log(`✅ Reminder sent for task "${task.title}"`);
     } catch (error) {

@@ -185,7 +185,7 @@ const deleteUser = asyncHandler(async (req, res) => {
 });
 
 const getActiveSessions = asyncHandler(async (req, res) => {
-  const sessions = sessionService.getActiveSessions();
+  const sessions = await sessionService.getActiveSessions();
   
   res.json({
     success: true,
