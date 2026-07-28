@@ -30,7 +30,7 @@ const startServer = async () => {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map(s => s.trim());
+  const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://task-scheduler-client.netlify.app').split(',').map(s => s.trim());
 
   app.use(cors({
     origin: (origin, callback) => {
