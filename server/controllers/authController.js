@@ -19,6 +19,13 @@ const { pool } = require('../config/db');
 
 // ==================== Public Routes ====================
 
+// Function: register
+// Triggered by: Registration form submission from Register.jsx (handleSubmit -> AuthContext.register)
+// Endpoint: POST /api/auth/register
+// Purpose: Create a new user account
+// Input: name, email, password (JSON body)
+// Database: SELECTs users table to check email uniqueness; INSERTs new user with bcrypt-hashed password
+// Output: 201 with { success, message, data: { user, token } }; 400 if email already registered
 /**
  * Register a new user account
  * 
@@ -60,6 +67,15 @@ const register = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: login
+// Triggered by: Login form submission from Login.jsx (handleSubmit -> AuthContext.login)
+// Endpoint: POST /api/auth/login
+// Purpose: Authenticate user credentials and generate access token
+// Input: email, password (JSON body)
+// Database: SELECTs user from users table (with password hash), compares password via bcrypt;
+//           records session in in-memory sessionService map for admin session tracking
+// Output: 200 with { success, message, data: { user (password removed), token } };
+//           401 if email or password is invalid
 /**
  * Authenticate user and get token
  * 
@@ -115,6 +131,14 @@ const login = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: forgotPassword
+// Triggered by: ForgotPassword.jsx form submission (handleSubmit -> authService.forgotPassword)
+// Endpoint: POST /api/auth/forgot-password
+// Purpose: Generate a password reset token and email a reset link to the user
+// Input: email (JSON body)
+// Database: SELECTs user by email; DELETEs old tokens; INSERTs hashed token into password_reset_tokens
+// Output: Always 200 with generic success message (prevents email enumeration);
+//           sends reset email via sendPasswordResetEmail (emailService)
 /**
  * Request password reset email
  * 
@@ -186,6 +210,14 @@ const forgotPassword = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: resetPassword
+// Triggered by: ResetPassword.jsx form submission (handleSubmit -> authService.resetPassword)
+// Endpoint: POST /api/auth/reset-password
+// Purpose: Validate the reset token and set a new password for the user
+// Input: token, password, confirmPassword (JSON body)
+// Database: SELECTs unexpired, unused token from password_reset_tokens; UPDATEs users password (hashed);
+//           marks token used; DELETEs all other tokens for the user
+// Output: 200 with success message; 400 for invalid/expired token, mismatched or weak password
 /**
  * Reset password using token
  * 
@@ -268,6 +300,13 @@ const resetPassword = asyncHandler(async (req, res) => {
 
 // ==================== Protected Routes ====================
 
+// Function: getMe
+// Triggered by: App mount / AuthContext.initAuth on page reload (authService.getCurrentUser)
+// Endpoint: GET /api/auth/me
+// Purpose: Return the current authenticated user profile
+// Input: Authorization Bearer token (user attached by protect middleware)
+// Database: No direct query here (user loaded by protect middleware via User.findById)
+// Output: 200 with { success, data: { user } }
 /**
  * Get current authenticated user profile
  * 
@@ -283,6 +322,13 @@ const getMe = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: updateProfile
+// Triggered by: Settings.jsx Profile tab "Save Changes" (handleProfileSubmit -> AuthContext.updateProfile)
+// Endpoint: PUT /api/auth/profile
+// Purpose: Update the current user's name and/or email
+// Input: name, email (both optional, JSON body)
+// Database: SELECTs users to verify new email uniqueness; UPDATEs users row
+// Output: 200 with { success, message, data: { user } }; 400 if new email already in use
 /**
  * Update user profile (name and email)
  * 
@@ -322,6 +368,13 @@ const updateProfile = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: changePassword
+// Triggered by: Settings.jsx Security tab "Update Password" (handlePasswordSubmit -> AuthContext.changePassword)
+// Endpoint: PUT /api/auth/password
+// Purpose: Verify the current password and set a new password
+// Input: currentPassword, newPassword (JSON body)
+// Database: SELECTs user with password hash; UPDATEs users password (bcrypt-hashed)
+// Output: 200 with { success, message, data: { token } }; 401 if current password is incorrect
 /**
  * Change user password (requires current password)
  * 
@@ -360,6 +413,13 @@ const changePassword = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: updateSettings
+// Triggered by: Settings.jsx Notifications tab "Save Preferences" (handleSettingsSubmit -> AuthContext.updateSettings)
+// Endpoint: PUT /api/auth/settings
+// Purpose: Update notification preferences, theme, and default reminder time
+// Input: notifications, theme, reminderTime (JSON body)
+// Database: SELECTs user; UPDATEs users settings column (stored as JSON)
+// Output: 200 with { success, message, data: { settings } }
 /**
  * Update user settings
  * 
@@ -406,6 +466,14 @@ const updateSettings = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getSettings
+// Triggered by: No current frontend caller (authService.getSettings is defined but never invoked by any component)
+// Endpoint: GET /api/auth/settings
+// Purpose: Fetch the current user's saved settings
+// Input: Authorization Bearer token
+// Database: SELECTs user and returns settings column
+// Output: 200 with { success, data: { settings } }
+// NOTE: Unused backend function - no frontend flow triggers this endpoint
 /**
  * Get user settings
  * 
@@ -423,6 +491,13 @@ const getSettings = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: logout
+// Triggered by: Logout button in Header.jsx / Sidebar.jsx (AuthContext.logout)
+// Endpoint: POST /api/auth/logout
+// Purpose: Remove the user's active session from the session tracker
+// Input: Authorization Bearer token
+// Database: No DB query; removes session from in-memory sessionService map
+// Output: 200 with { success, message }; client also clears token from localStorage
 /**
  * Logout user (server-side session cleanup)
  * 
@@ -441,6 +516,13 @@ const logout = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: deleteAccount
+// Triggered by: Settings.jsx Security tab "Confirm Delete" (handleDeleteAccount -> AuthContext.deleteAccount)
+// Endpoint: DELETE /api/auth/account
+// Purpose: Permanently delete the user account and all of their tasks
+// Input: password (JSON body, used for verification)
+// Database: SELECTs user with password hash; SELECTs and DELETEs all user tasks; DELETEs user row
+// Output: 200 with { success, message }; 401 if password is incorrect
 /**
  * Delete user account
  * 

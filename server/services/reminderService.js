@@ -15,6 +15,12 @@ const activeJobs = new Map();
  * Initialize the reminder service
  * Starts cron job to check for due tasks every minute
  */
+// Function: initReminderService
+// Triggered by: server.js startServer (after app.listen) - runs once at boot
+// Purpose: Start the cron job that scans for due tasks every minute
+// Input: None
+// Database: None directly (triggers checkDueTasks which queries tasks)
+// Output: None; schedules '* * * * *' cron job calling checkDueTasks
 const initReminderService = () => {
     console.log('🔄 Initializing reminder service...');
 
@@ -29,6 +35,12 @@ const initReminderService = () => {
 /**
  * Check for tasks that need reminders
  */
+// Function: checkDueTasks
+// Triggered by: initReminderService cron job (every minute), and reminderService.checkDueTasks export
+// Purpose: Find tasks due within each user's configured reminder window and send reminders
+// Input: None (uses current server time)
+// Database: Task.getTasksNeedingReminders (SELECT tasks with reminders enabled/unsent); User.findById per task
+// Output: None; triggers sendReminder for matching tasks and marks reminderSent
 const checkDueTasks = async () => {
     try {
         const now = new Date();
@@ -78,6 +90,12 @@ const checkDueTasks = async () => {
  * @param {Object} task - Task object
  * @param {Object} user - User object
  */
+// Function: sendReminder
+// Triggered by: checkDueTasks and scheduleTaskReminder's cron callback
+// Purpose: Dispatch a task reminder email (if enabled) and mark the reminder as sent
+// Input: task (task object), user (owner object with settings.notifications)
+// Database: Task.update to set reminderSent = true after sending
+// Output: None; logs success/failure
 const sendReminder = async (task, user) => {
     try {
         if (!user) {
@@ -106,6 +124,14 @@ const sendReminder = async (task, user) => {
  * @param {Object} task - Task object
  * @param {Object} user - User object
  */
+// Function: scheduleTaskReminder
+// Triggered by: No current caller (exported but never invoked by controllers; reminders rely on the minute cron job)
+// Endpoint: None (internal helper)
+// Purpose: Schedule a one-off cron reminder at the task's due time minus the user's reminder offset
+// Input: task (with dueDate, time, reminderEnabled, status), user (with settings.reminderTime)
+// Database: None (schedules in-memory cron job only)
+// Output: None; stores active job in activeJobs map
+// NOTE: Unused service function - the polling cron in initReminderService handles reminders instead
 const scheduleTaskReminder = (task, user) => {
     // Cancel existing reminder if any
     cancelTaskReminder(task.id);
@@ -145,6 +171,12 @@ const scheduleTaskReminder = (task, user) => {
  * Cancel a task's reminder
  * @param {string} taskId - Task ID
  */
+// Function: cancelTaskReminder
+// Triggered by: scheduleTaskReminder (to avoid duplicates) and its cron callback (after firing)
+// Purpose: Stop and remove a task's scheduled reminder job
+// Input: taskId (string/number)
+// Database: None
+// Output: None
 const cancelTaskReminder = (taskId) => {
     const jobId = taskId.toString();
 
@@ -161,6 +193,13 @@ const cancelTaskReminder = (taskId) => {
  * @param {Object} task - Updated task object
  * @param {Object} user - User object
  */
+// Function: rescheduleTaskReminder
+// Triggered by: No current caller (exported but never invoked after task updates)
+// Purpose: Reset the reminderSent flag and reschedule a task's reminder after it is edited
+// Input: task (updated task object), user (owner object)
+// Database: None directly (delegates to scheduleTaskReminder)
+// Output: None
+// NOTE: Unused service function - no backend flow triggers this
 const rescheduleTaskReminder = (task, user) => {
     // Reset reminder sent flag if task is updated
     if (task.reminderSent) {
@@ -174,6 +213,13 @@ const rescheduleTaskReminder = (task, user) => {
  * Get pending reminders count
  * @returns {number} - Number of active scheduled reminders
  */
+// Function: getPendingRemindersCount
+// Triggered by: No current caller (exported but never invoked)
+// Purpose: Return the number of active scheduled reminder jobs
+// Input: None
+// Database: None
+// Output: Number (activeJobs.size)
+// NOTE: Unused service function - no backend flow triggers this
 const getPendingRemindersCount = () => {
     return activeJobs.size;
 };
@@ -181,6 +227,12 @@ const getPendingRemindersCount = () => {
 /**
  * Stop all reminder jobs (for graceful shutdown)
  */
+// Function: stopAllReminders
+// Triggered by: server.js SIGTERM handler (graceful shutdown)
+// Purpose: Stop all active reminder cron jobs before process exit
+// Input: None
+// Database: None
+// Output: None; clears activeJobs map
 const stopAllReminders = () => {
     for (const [id, job] of activeJobs) {
         job.stop();

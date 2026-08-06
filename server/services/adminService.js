@@ -5,6 +5,12 @@ const User = require('../models/User');
 const DEFAULT_ADMIN_EMAIL = 'admin@taskflow.com';
 const DEFAULT_ADMIN_PASSWORD = 'admin123';
 
+// Function: createDefaultAdmin
+// Triggered by: server.js startServer during startup (createDefaultAdmin())
+// Purpose: Ensure an admin account exists on boot (creates one, or upgrades the default email to admin)
+// Input: None (uses DEFAULT_ADMIN_EMAIL / DEFAULT_ADMIN_PASSWORD constants)
+// Database: SELECT COUNT of admins; SELECT user by default email; UPDATE role/status or INSERT new admin user
+// Output: None; logs the result and (first time) the default credentials
 const createDefaultAdmin = async () => {
     try {
         const result = await pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'");

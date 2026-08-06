@@ -4,6 +4,13 @@ const { pool } = require('../config/db');
 const { asyncHandler } = require('../middleware/errorHandler');
 const sessionService = require('../services/sessionService');
 
+// Function: getAllUsers
+// Triggered by: AdminUsers.jsx loadUsers (page load / pagination change) -> adminService.getUsers
+// Endpoint: GET /api/admin/users?page=<n>&limit=<n>
+// Purpose: Return a paginated list of all users for the admin panel
+// Input: Query params - page (default 1), limit (default 20)
+// Database: SELECTs users ordered by createdAt DESC with LIMIT/OFFSET; COUNT(*) for total
+// Output: 200 with { success, data: { users, pagination } }
 const getAllUsers = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
@@ -34,6 +41,13 @@ const getAllUsers = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: getUserStats
+// Triggered by: AdminDashboard.jsx loadDashboardData (page load) -> adminService.getUserStats
+// Endpoint: GET /api/admin/users/stats
+// Purpose: Return aggregate user/task counts for the admin dashboard stat cards
+// Input: Authorization Bearer token (admin)
+// Database: Parallel COUNT queries on users and tasks tables (total, active, disabled, admin, user, tasks)
+// Output: 200 with { success, data: { totalUsers, activeUsers, disabledUsers, adminUsers, regularUsers, totalTasks } }
 const getUserStats = asyncHandler(async (req, res) => {
   const results = await Promise.all([
     pool.query('SELECT COUNT(*) as count FROM users'),
@@ -64,6 +78,14 @@ const getUserStats = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: getUserById
+// Triggered by: No current frontend caller (AdminUsers.jsx defines handleViewUser but no UI element invokes it)
+// Endpoint: GET /api/admin/users/:id
+// Purpose: Return a single user's details along with their task statistics
+// Input: URL param - id
+// Database: SELECTs user by id; Task.getStats for the user's task counts
+// Output: 200 with { success, data: { user, taskStats } }; 404 if user not found
+// NOTE: Unused backend function - no frontend flow triggers this endpoint
 const getUserById = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);
   
@@ -82,6 +104,13 @@ const getUserById = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: updateUserStatus
+// Triggered by: AdminUsers.jsx handleStatusToggle (enable/disable toggle button) -> adminService.updateUserStatus
+// Endpoint: PUT /api/admin/users/:id/status
+// Purpose: Enable or disable a user's account (disabled users cannot log in)
+// Input: URL param - id; body - status ('active' | 'disabled')
+// Database: SELECTs user by id; UPDATEs users status column
+// Output: 200 with { success, message, data: { user } }; 400 for invalid status or self-disable; 404 if not found
 const updateUserStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
   
@@ -117,6 +146,13 @@ const updateUserStatus = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: updateUserRole
+// Triggered by: AdminUsers.jsx handleRoleChange (promote/demote shield button) -> adminService.updateUserRole
+// Endpoint: PUT /api/admin/users/:id/role
+// Purpose: Promote a user to admin or demote an admin back to user
+// Input: URL param - id; body - role ('user' | 'admin')
+// Database: SELECTs user by id; UPDATEs users role column
+// Output: 200 with { success, message, data: { user } }; 400 for invalid role or self-demotion; 404 if not found
 const updateUserRole = asyncHandler(async (req, res) => {
   const { role } = req.body;
   
@@ -152,6 +188,13 @@ const updateUserRole = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: deleteUser
+// Triggered by: AdminUsers.jsx handleDelete (delete button + confirm) -> adminService.deleteUser
+// Endpoint: DELETE /api/admin/users/:id
+// Purpose: Permanently delete a user along with all related data (tasks, weekly tasks, reset tokens)
+// Input: URL param - id
+// Database: DELETEs weekly_task_completions, weekly_tasks, tasks, password_reset_tokens, then users row
+// Output: 200 with { success, message }; 400 for self-deletion; 404 if user not found
 const deleteUser = asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.id);
   
@@ -184,6 +227,13 @@ const deleteUser = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: getActiveSessions
+// Triggered by: AdminSessions.jsx loadSessions (page load / Refresh button) -> adminService.getActiveSessions
+// Endpoint: GET /api/admin/sessions
+// Purpose: List all currently active user sessions with user details
+// Input: Authorization Bearer token (admin)
+// Database: Reads in-memory sessionService map; SELECTs user info from users for each active session
+// Output: 200 with { success, data: { sessions } }
 const getActiveSessions = asyncHandler(async (req, res) => {
   const sessions = await sessionService.getActiveSessions();
   
@@ -193,6 +243,13 @@ const getActiveSessions = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: forceLogoutUser
+// Triggered by: AdminSessions.jsx handleForceLogout ("Force Logout" button + confirm) -> adminService.forceLogoutUser
+// Endpoint: DELETE /api/admin/sessions/:userId
+// Purpose: Terminate a user's active session server-side
+// Input: URL param - userId
+// Database: No DB query; removes session from in-memory sessionService map
+// Output: 200 with { success, message }; 400 for self-logout; 404 if no active session found
 const forceLogoutUser = asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.userId);
   
@@ -218,6 +275,13 @@ const forceLogoutUser = asyncHandler(async (req, res) => {
   });
 });
 
+// Function: getActivityOverview
+// Triggered by: AdminDashboard.jsx loadDashboardData (page load) -> adminService.getActivity
+// Endpoint: GET /api/admin/activity
+// Purpose: Return 7-day activity summary (tasks created/completed, new users) and daily breakdown
+// Input: Authorization Bearer token (admin)
+// Database: Parallel COUNT queries on tasks and users tables filtered by date ranges
+// Output: 200 with { success, data: { summary, dailyActivity } }; 500 on query failure
 const getActivityOverview = asyncHandler(async (req, res) => {
   try {
     const today = new Date();

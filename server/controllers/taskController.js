@@ -1,6 +1,13 @@
 const Task = require('../models/Task');
 const { asyncHandler } = require('../middleware/errorHandler');
 
+// Function: getTasks
+// Triggered by: TaskContext.fetchTasks (refreshAll on Dashboard/auth) -> taskService.getTasks
+// Endpoint: GET /api/tasks
+// Purpose: Fetch the logged-in user's tasks with optional filters
+// Input: Query params - status, priority, category, search, limit
+// Database: SELECTs tasks from tasks table filtered by userId and optional filters; search filtered in memory
+// Output: 200 with { success, count, data: { tasks } }
 const getTasks = asyncHandler(async (req, res) => {
     const { status, priority, category, search, limit = 100 } = req.query;
 
@@ -29,6 +36,14 @@ const getTasks = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getTask
+// Triggered by: No current frontend caller (taskService.getTask is defined but never used by any component)
+// Endpoint: GET /api/tasks/:id
+// Purpose: Fetch a single task by ID, ensuring it belongs to the logged-in user
+// Input: URL param - id
+// Database: SELECTs task from tasks table by id
+// Output: 200 with { success, data: { task } }; 404 if not found or not owned by user
+// NOTE: Unused backend function - no frontend flow triggers this endpoint
 const getTask = asyncHandler(async (req, res) => {
     const task = await Task.findById(req.params.id);
 
@@ -45,6 +60,13 @@ const getTask = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getTodayTasks
+// Triggered by: TodayTasks.jsx mount + TaskContext.fetchTodayTasks (refreshAll) -> taskService.getTodayTasks
+// Endpoint: GET /api/tasks/today
+// Purpose: Fetch the logged-in user's tasks due today
+// Input: Authorization Bearer token
+// Database: SELECTs tasks from tasks table where dueDate = today
+// Output: 200 with { success, count, data: { tasks } }
 const getTodayTasks = asyncHandler(async (req, res) => {
     const tasks = await Task.getTodayTasks(req.user.id);
 
@@ -55,6 +77,13 @@ const getTodayTasks = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getUpcomingTasks
+// Triggered by: UpcomingTasks.jsx mount + TaskContext.fetchUpcomingTasks (refreshAll) -> taskService.getUpcomingTasks
+// Endpoint: GET /api/tasks/upcoming?days=7
+// Purpose: Fetch pending tasks with a due date after today, optionally filtered by a day window
+// Input: Query param - days (default 7)
+// Database: SELECTs pending tasks from tasks table with dueDate > today
+// Output: 200 with { success, count, data: { tasks } }
 const getUpcomingTasks = asyncHandler(async (req, res) => {
     const { days = 7 } = req.query;
 
@@ -75,6 +104,13 @@ const getUpcomingTasks = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getCompletedTasks
+// Triggered by: CompletedTasks.jsx mount + TaskContext.fetchCompletedTasks (refreshAll) -> taskService.getCompletedTasks
+// Endpoint: GET /api/tasks/completed?limit=50
+// Purpose: Fetch the logged-in user's completed tasks, most recent first
+// Input: Query param - limit (default 50)
+// Database: SELECTs completed tasks from tasks table ordered by completedAt DESC
+// Output: 200 with { success, count, data: { tasks } }
 const getCompletedTasks = asyncHandler(async (req, res) => {
     const { limit = 50 } = req.query;
 
@@ -87,6 +123,13 @@ const getCompletedTasks = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getStats
+// Triggered by: Dashboard.jsx mount via TaskContext.refreshAll -> taskService.getStats
+// Endpoint: GET /api/tasks/stats
+// Purpose: Compute aggregate task statistics and 7-day productivity data for the dashboard
+// Input: Authorization Bearer token
+// Database: Multiple COUNT queries on tasks table (total, completed, pending, today, week, by priority)
+// Output: 200 with { success, data: { stats, weekData } }
 const getStats = asyncHandler(async (req, res) => {
     const stats = await Task.getStats(req.user.id);
 
@@ -131,6 +174,13 @@ const getStats = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getCalendarTasks
+// Triggered by: Calendar.jsx fetchEvents (view/navigation changes) -> TaskContext.getCalendarTasks -> taskService.getCalendarTasks
+// Endpoint: GET /api/tasks/calendar?start=<date>&end=<date>
+// Purpose: Fetch tasks within a date range for the calendar view
+// Input: Query params - start, end (dates)
+// Database: SELECTs tasks from tasks table where dueDate is BETWEEN start and end
+// Output: 200 with { success, count, data: { tasks } }; 400 if start/end missing
 const getCalendarTasks = asyncHandler(async (req, res) => {
     const { start, end } = req.query;
 
@@ -150,6 +200,14 @@ const getCalendarTasks = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: getTasksByRange
+// Triggered by: No current frontend caller (taskService.getTasksByRange is defined but never used by any component)
+// Endpoint: GET /api/tasks/range?startDate=<date>&endDate=<date>
+// Purpose: Fetch tasks within an arbitrary date range (used for date-range reports)
+// Input: Query params - startDate, endDate
+// Database: SELECTs tasks from tasks table where dueDate is BETWEEN startDate and endDate
+// Output: 200 with { success, count, data: { tasks } }; 400 if dates missing
+// NOTE: Unused backend function - no frontend flow triggers this endpoint
 const getTasksByRange = asyncHandler(async (req, res) => {
     const { startDate, endDate } = req.query;
 
@@ -169,6 +227,13 @@ const getTasksByRange = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: createTask
+// Triggered by: TaskModal.jsx handleSubmit (create mode) -> TaskContext.createTask -> taskService.createTask
+// Endpoint: POST /api/tasks
+// Purpose: Create a new task for the logged-in user and assign the next sort order
+// Input: title, description, dueDate, time, priority, category, reminderEnabled (JSON body)
+// Database: SELECTs existing tasks to compute order; INSERTs new row into tasks table
+// Output: 201 with { success, message, data: { task } }
 const createTask = asyncHandler(async (req, res) => {
     const { title, description, dueDate, time, priority, category, reminderEnabled } = req.body;
 
@@ -194,6 +259,13 @@ const createTask = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: updateTask
+// Triggered by: TaskModal.jsx handleSubmit (edit mode) -> TaskContext.updateTask -> taskService.updateTask
+// Endpoint: PUT /api/tasks/:id
+// Purpose: Update editable fields of an existing task (sets completedAt when marked complete)
+// Input: URL param - id; body - title, description, dueDate, time, priority, status, category, reminderEnabled
+// Database: SELECTs task to verify ownership; UPDATEs tasks row
+// Output: 200 with { success, message, data: { task } }; 404 if not found or not owned by user
 const updateTask = asyncHandler(async (req, res) => {
     const { title, description, dueDate, time, priority, status, category, reminderEnabled } = req.body;
 
@@ -231,6 +303,13 @@ const updateTask = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: toggleComplete
+// Triggered by: TaskCard.jsx handleToggleComplete (completion circle click) -> TaskContext.toggleComplete -> taskService.toggleComplete
+// Endpoint: PATCH /api/tasks/:id/complete
+// Purpose: Toggle a task between pending and completed status
+// Input: URL param - id
+// Database: SELECTs task to verify ownership; UPDATEs tasks row status and completedAt
+// Output: 200 with { success, message, data: { task } }; 404 if not found or not owned by user
 const toggleComplete = asyncHandler(async (req, res) => {
     const task = await Task.findById(req.params.id);
 
@@ -250,6 +329,14 @@ const toggleComplete = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: reorderTasks
+// Triggered by: No current frontend caller (TaskContext.reorderTasks exists but no component performs drag & drop)
+// Endpoint: PUT /api/tasks/reorder
+// Purpose: Persist the new sort order of tasks after drag-and-drop
+// Input: body - taskOrders (array of { id, order })
+// Database: UPDATEs "order" column for each task id
+// Output: 200 with { success, message }; 400 if taskOrders is not an array
+// NOTE: Unused backend function - no frontend flow triggers this endpoint
 const reorderTasks = asyncHandler(async (req, res) => {
     const { taskOrders } = req.body;
 
@@ -270,6 +357,14 @@ const reorderTasks = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: bulkUpdate
+// Triggered by: No current frontend caller (TaskContext.bulkUpdate is defined but never invoked by any component)
+// Endpoint: PUT /api/tasks/bulk
+// Purpose: Apply the same update to multiple tasks at once
+// Input: body - taskIds (array), updates (object of fields to change)
+// Database: SELECTs each task to verify ownership; UPDATEs each owned tasks row
+// Output: 200 with { success, message, data: { modifiedCount } }; 400 if taskIds missing
+// NOTE: Unused backend function - no frontend flow triggers this endpoint
 const bulkUpdate = asyncHandler(async (req, res) => {
     const { taskIds, updates } = req.body;
 
@@ -296,6 +391,13 @@ const bulkUpdate = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: deleteTask
+// Triggered by: TaskCard.jsx handleDelete (menu delete + confirm) -> TaskContext.deleteTask -> taskService.deleteTask
+// Endpoint: DELETE /api/tasks/:id
+// Purpose: Delete a single task belonging to the logged-in user
+// Input: URL param - id
+// Database: SELECTs task to verify ownership; DELETEs tasks row
+// Output: 200 with { success, message }; 404 if not found or not owned by user
 const deleteTask = asyncHandler(async (req, res) => {
     const task = await Task.findById(req.params.id);
 
@@ -314,6 +416,14 @@ const deleteTask = asyncHandler(async (req, res) => {
     });
 });
 
+// Function: bulkDelete
+// Triggered by: No current frontend caller (TaskContext.bulkDelete is defined but never invoked by any component)
+// Endpoint: DELETE /api/tasks/bulk
+// Purpose: Delete multiple tasks at once
+// Input: body - taskIds (array)
+// Database: SELECTs each task to verify ownership; DELETEs each owned tasks row
+// Output: 200 with { success, message, data: { deletedCount } }; 400 if taskIds missing
+// NOTE: Unused backend function - no frontend flow triggers this endpoint
 const bulkDelete = asyncHandler(async (req, res) => {
     const { taskIds } = req.body;
 

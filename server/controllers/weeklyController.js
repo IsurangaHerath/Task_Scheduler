@@ -1,6 +1,14 @@
 const WeeklyTask = require('../models/WeeklyTask');
 
 const weeklyController = {
+    // Function: getAllTasks
+    // Triggered by: No current frontend caller (weeklyService.getAllTasks is defined but never used by any component)
+    // Endpoint: GET /api/weekly/tasks
+    // Purpose: Return all weekly tasks for the logged-in user
+    // Input: Authorization Bearer token
+    // Database: SELECTs weekly_tasks ordered by createdAt
+    // Output: 200 with { success, data: { tasks } }; 500 on error
+    // NOTE: Unused backend function - no frontend flow triggers this endpoint
     async getAllTasks(req, res) {
         try {
             const userId = req.user.id;
@@ -15,6 +23,13 @@ const weeklyController = {
         }
     },
 
+    // Function: getTasksWithCompletions
+    // Triggered by: WeeklyTaskTracker.jsx + WeeklyReport.jsx fetchData (week load/navigation) -> weeklyService.getTasksWithCompletions
+    // Endpoint: GET /api/weekly/tasks-with-completions?weekStart=<date>
+    // Purpose: Return weekly tasks each annotated with their per-day completion map for a given week
+    // Input: Query param - weekStart (optional, defaults to current week Monday)
+    // Database: SELECTs weekly_tasks and weekly_task_completions for the requested week
+    // Output: 200 with { success, data: [ { ...task, completions: { dayIndex: { completed, completedAt } } } ] }; 500 on error
     async getTasksWithCompletions(req, res) {
         try {
             const userId = req.user.id;
@@ -30,6 +45,13 @@ const weeklyController = {
         }
     },
 
+    // Function: createTask
+    // Triggered by: WeeklyTaskTracker.jsx handleAddTask (Add Task form submit) -> weeklyService.createTask
+    // Endpoint: POST /api/weekly/tasks
+    // Purpose: Create a new recurring weekly task
+    // Input: body - name (task label)
+    // Database: INSERTs into weekly_tasks table
+    // Output: 201 with { success, data: { task } }; 400 if name empty; 500 on error
     async createTask(req, res) {
         try {
             const userId = req.user.id;
@@ -54,6 +76,14 @@ const weeklyController = {
         }
     },
 
+    // Function: updateTask
+    // Triggered by: No current frontend caller (weeklyService.updateTask is defined but no component offers a rename action)
+    // Endpoint: PUT /api/weekly/tasks/:id
+    // Purpose: Rename an existing weekly task
+    // Input: URL param - id; body - name
+    // Database: SELECTs weekly_task to verify ownership; UPDATEs weekly_tasks name
+    // Output: 200 with { success, data: { task } }; 404 if not found/owned; 400 if name empty; 500 on error
+    // NOTE: Unused backend function - no frontend flow triggers this endpoint
     async updateTask(req, res) {
         try {
             const { id } = req.params;
@@ -80,6 +110,13 @@ const weeklyController = {
         }
     },
 
+    // Function: deleteTask
+    // Triggered by: WeeklyTaskTracker.jsx handleDeleteTask (delete icon) -> weeklyService.deleteTask
+    // Endpoint: DELETE /api/weekly/tasks/:id
+    // Purpose: Delete a weekly task (and its completions via cascade)
+    // Input: URL param - id
+    // Database: SELECTs weekly_task to verify ownership; DELETEs weekly_tasks row
+    // Output: 200 with { success, message }; 404 if not found/owned; 500 on error
     async deleteTask(req, res) {
         try {
             const { id } = req.params;
@@ -101,6 +138,13 @@ const weeklyController = {
         }
     },
 
+    // Function: toggleCompletion
+    // Triggered by: WeeklyTaskTracker.jsx handleToggleDay (day checkbox click) -> weeklyService.toggleCompletion
+    // Endpoint: POST /api/weekly/tasks/:id/toggle
+    // Purpose: Toggle a task's completion for a specific day of the current week
+    // Input: URL param - id; body - dayOfWeek (0-6), weekStart
+    // Database: SELECTs weekly_task to verify ownership; SELECTs/INSERTs/UPDATEs weekly_task_completions row
+    // Output: 200 with { success, data: { completed, completedAt } }; 400 for invalid day; 404 if not found/owned; 500 on error
     async toggleCompletion(req, res) {
         try {
             const { id } = req.params;
@@ -126,6 +170,13 @@ const weeklyController = {
         }
     },
 
+    // Function: getWeeklyProgress
+    // Triggered by: WeeklyTaskTracker.jsx + WeeklyReport.jsx fetchData (week load/navigation) -> weeklyService.getWeeklyProgress
+    // Endpoint: GET /api/weekly/progress?weekStart=<date>
+    // Purpose: Compute the user's weekly completion/missed totals and completion rate
+    // Input: Query param - weekStart (optional, defaults to current week Monday)
+    // Database: SELECTs weekly_tasks; aggregate SUM query on weekly_task_completions for the week
+    // Output: 200 with { success, data: { completed, missed, total, completionRate } }; 500 on error
     async getWeeklyProgress(req, res) {
         try {
             const userId = req.user.id;

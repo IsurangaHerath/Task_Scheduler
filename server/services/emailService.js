@@ -6,6 +6,12 @@ const nodemailer = require('nodemailer');
  */
 
 // Create transporter based on environment
+// Function: createTransporter
+// Triggered by: Module load (once) to build the nodemailer transport for the app
+// Purpose: Create a nodemailer transporter from SMTP env vars, or null if email is not configured
+// Input: process.env SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+// Database: None
+// Output: nodemailer Transport object or null (email features then disabled)
 const createTransporter = () => {
     // Check if email is configured
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
@@ -26,6 +32,12 @@ const createTransporter = () => {
 
 const transporter = createTransporter();
 
+// Function: sendTaskReminder
+// Triggered by: reminderService.sendReminder (cron job every minute) when a due task is in the reminder window
+// Purpose: Email the user a styled reminder about an upcoming task
+// Input: user (with email/name), task (with title, description, dueDate, time, priority)
+// Database: None (reads task/user data passed by caller)
+// Output: Promise<boolean> - true if email sent, false if skipped/failed
 /**
  * Send task reminder email
  * @param {Object} user - User object with email and name
@@ -121,6 +133,13 @@ const sendTaskReminder = async (user, task) => {
     }
 };
 
+// Function: sendWelcomeEmail
+// Triggered by: No current caller (exported but not invoked anywhere; register does not call it)
+// Purpose: Send a welcome email to newly registered users
+// Input: user (with email, name)
+// Database: None
+// Output: Promise<boolean> - true if sent, false otherwise
+// NOTE: Unused service function - no backend flow triggers this email
 /**
  * Send welcome email to new users
  * @param {Object} user - User object with email and name
@@ -200,6 +219,12 @@ const sendWelcomeEmail = async (user) => {
  * @param {string} priority - Task priority
  * @returns {string} - Color hex code
  */
+// Function: getPriorityColor
+// Triggered by: sendTaskReminder (internal helper) while building the reminder email
+// Purpose: Map a task priority to its theme color hex code
+// Input: priority ('low' | 'medium' | 'high')
+// Database: None
+// Output: Color hex string (defaults to medium color)
 function getPriorityColor(priority) {
     const colors = {
         low: '#A8E6CF',
@@ -214,6 +239,12 @@ function getPriorityColor(priority) {
  * @param {string} priority - Task priority
  * @returns {string} - Emoji
  */
+// Function: getPriorityEmoji
+// Triggered by: sendTaskReminder (internal helper) while building the reminder email
+// Purpose: Map a task priority to a display emoji
+// Input: priority ('low' | 'medium' | 'high')
+// Database: None
+// Output: Emoji string (defaults to medium emoji)
 function getPriorityEmoji(priority) {
     const emojis = {
         low: '🟢',
@@ -223,6 +254,12 @@ function getPriorityEmoji(priority) {
     return emojis[priority] || emojis.medium;
 }
 
+// Function: sendPasswordResetEmail
+// Triggered by: authController.forgotPassword (POST /api/auth/forgot-password)
+// Purpose: Email the user a password reset link containing a one-time token
+// Input: user (with email, name), resetUrl (frontend reset link with token)
+// Database: None (token already stored by the controller)
+// Output: Promise<boolean> - true if sent, false if skipped/failed; logs reset URL in dev when SMTP unset
 /**
  * Send password reset email
  * @param {Object} user - User object with email and name
@@ -313,6 +350,12 @@ const sendPasswordResetEmail = async (user, resetUrl) => {
  * Verify email configuration
  * @returns {Promise<boolean>} - Configuration status
  */
+// Function: verifyEmailConfig
+// Triggered by: server.js startServer during startup (verifyEmailConfig())
+// Purpose: Validate the SMTP transporter connection at boot time
+// Input: None (reads module-level transporter)
+// Database: None
+// Output: Promise<boolean> - true if transporter verifies, false if not configured or connection fails
 const verifyEmailConfig = async () => {
     if (!transporter) {
         return false;
