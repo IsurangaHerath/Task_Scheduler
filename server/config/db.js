@@ -1,10 +1,29 @@
 const { Pool } = require('pg');
 
+const connectionString = process.env.DATABASE_URL;
+const rawSslMode = connectionString
+  ? new URL(connectionString).searchParams.get('sslmode')
+  : undefined;
+
+// node-postgres throws when SSL is configured in BOTH the connection string
+// and the `ssl` option. Strip the query params and control SSL here instead.
+const cleanConnectionString = connectionString
+  ? (() => {
+      const url = new URL(connectionString);
+      url.searchParams.delete('sslmode');
+      url.searchParams.delete('channel_binding');
+      return url.toString();
+    })()
+  : undefined;
+
+const requireSsl = rawSslMode && !['disable', 'false', '0'].includes(rawSslMode.trim().toLowerCase());
+const ssl = process.env.NODE_ENV === 'production' || requireSsl
+  ? { rejectUnauthorized: false }
+  : false;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? {
-    rejectUnauthorized: false
-  } : false,
+  connectionString: cleanConnectionString,
+  ssl,
 });
 
 const initializeDatabase = async () => {

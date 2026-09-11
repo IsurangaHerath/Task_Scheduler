@@ -44,6 +44,9 @@ Thumbs.db
 .temp/
 .tmp/
 
+# Deployment instructions (local only)
+DEPLOYMENT.md
+
 # MongoDB
 data/db/
 
