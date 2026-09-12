@@ -30,12 +30,15 @@ const startServer = async () => {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://task-scheduler-client.netlify.app').split(',').map(s => s.trim());
+  const defaultOrigins = ['http://localhost:5173', 'https://task-scheduler-client.netlify.app'];
+  const envOrigins = (process.env.CLIENT_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+  const allowedOrigins = [...envOrigins, ...defaultOrigins].map(o => o.toLowerCase().replace(/\/+$/, ''));
 
   app.use(cors({
     origin: (origin, callback) => {
       const isDev = process.env.NODE_ENV !== 'production';
-      if (!origin || isDev || allowedOrigins.includes(origin)) {
+      const normalized = origin ? origin.toLowerCase().replace(/\/+$/, '') : origin;
+      if (!origin || isDev || allowedOrigins.includes(normalized)) {
         callback(null, true);
       } else {
         console.error(`❌ CORS blocked origin: ${origin}`);
